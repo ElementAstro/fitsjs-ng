@@ -1,0 +1,33 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+.env.local
+
+# Logs
+*.log
+
+# Coverage
+coverage/
+
+# Temp
+*.tmp
+*.temp
+
+# VitePress
+docs/.vitepress/dist/
+docs/.vitepress/cache/
