@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>fitsjs-ng — Web Demo</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --border: #2a2d3a;
+      --text: #e4e6ed;
+      --text-dim: #8b8fa3;
+      --accent: #6c8cff;
+      --accent-hover: #8aa4ff;
+      --success: #4ade80;
+      --warning: #fbbf24;
+    }
+
+    body {
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      min-height: 100vh;
+    }
+
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 1rem 2rem;
+      display: flex;
+      align-items: center;
+      gap: 1.5rem;
+      flex-wrap: wrap;
+    }
+
+    header h1 {
+      font-size: 1.25rem;
+      font-weight: 600;
+      color: var(--accent);
+      white-space: nowrap;
+    }
+
+    header h1 span { color: var(--text-dim); font-weight: 400; }
+
+    .controls {
+      display: flex;
+      gap: 0.75rem;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    button, label.file-btn {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      padding: 0.5rem 1rem;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.875rem;
+      font-weight: 500;
+      transition: background 0.15s;
+    }
+
+    button:hover, label.file-btn:hover { background: var(--accent-hover); }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    label.file-btn { display: inline-block; }
+    label.file-btn input { display: none; }
+
+    select {
+      background: var(--surface);
+      color: var(--text);
+      border: 1px solid var(--border);
+      padding: 0.5rem 0.75rem;
+      border-radius: 6px;
+      font-size: 0.875rem;
+    }
+
+    .status {
+      margin-left: auto;
+      font-size: 0.8rem;
+      color: var(--text-dim);
+    }
+
+    main {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      grid-template-rows: auto 1fr;
+      gap: 1rem;
+      padding: 1rem 2rem;
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    .panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .panel-title {
+      padding: 0.6rem 1rem;
+      font-size: 0.8rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-dim);
+      border-bottom: 1px solid var(--border);
+      background: rgba(255,255,255,0.02);
+    }
+
+    .panel-body {
+      padding: 1rem;
+      overflow: auto;
+      max-height: 420px;
+    }
+
+    /* Info panel */
+    #info-panel { grid-column: 1 / 2; grid-row: 1; }
+    #info-panel .panel-body { max-height: 200px; }
+
+    .info-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+      gap: 0.5rem;
+    }
+
+    .info-item {
+      background: rgba(108, 140, 255, 0.06);
+      border-radius: 6px;
+      padding: 0.5rem 0.75rem;
+    }
+
+    .info-label { font-size: 0.7rem; color: var(--text-dim); text-transform: uppercase; }
+    .info-value { font-size: 1rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+
+    /* Canvas panel */
+    #canvas-panel { grid-column: 2 / 3; grid-row: 1 / 3; }
+    #canvas-panel .panel-body {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.75rem;
+      max-height: none;
+    }
+
+    canvas {
+      background: #000;
+      border-radius: 4px;
+      max-width: 100%;
+      image-rendering: pixelated;
+    }
+
+    #pixel-info {
+      font-size: 0.8rem;
+      color: var(--text-dim);
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* Header table panel */
+    #header-panel { grid-column: 1 / 2; grid-row: 2; }
+
+    /* Data table panel */
+    #table-panel { grid-column: 1 / 3; grid-row: 3; }
+
+    table.data-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.8rem;
+      font-variant-numeric: tabular-nums;
+    }
+
+    table.data-table th {
+      text-align: left;
+      padding: 0.4rem 0.6rem;
+      border-bottom: 2px solid var(--border);
+      color: var(--accent);
+      font-weight: 600;
+      position: sticky;
+      top: 0;
+      background: var(--surface);
+    }
+
+    table.data-table td {
+      padding: 0.3rem 0.6rem;
+      border-bottom: 1px solid var(--border);
+      color: var(--text);
+    }
+
+    table.data-table tr:hover td { background: rgba(108, 140, 255, 0.05); }
+
+    .empty-msg {
+      color: var(--text-dim);
+      font-size: 0.85rem;
+      text-align: center;
+      padding: 2rem;
+    }
+
+    @media (max-width: 900px) {
+      main { grid-template-columns: 1fr; }
+      #canvas-panel { grid-column: 1; grid-row: 2; }
+      #header-panel { grid-column: 1; grid-row: 3; }
+      #table-panel { grid-column: 1; grid-row: 4; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>fitsjs-ng <span>Web Demo</span></h1>
+  <div class="controls">
+    <label class="file-btn">
+      Open FITS File
+      <input type="file" id="file-input" accept=".fits,.fit,.fts" />
+    </label>
+    <button id="btn-sample">Generate Sample</button>
+    <select id="hdu-select" disabled>
+      <option>No file loaded</option>
+    </select>
+  </div>
+  <div class="status" id="status">Ready</div>
+</header>
+
+<main>
+  <!-- Info panel -->
+  <div class="panel" id="info-panel">
+    <div class="panel-title">Image Info</div>
+    <div class="panel-body">
+      <div class="info-grid" id="info-grid">
+        <div class="empty-msg" style="grid-column:1/-1">Load a FITS file to see info</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Canvas panel -->
+  <div class="panel" id="canvas-panel">
+    <div class="panel-title">Image Preview</div>
+    <div class="panel-body">
+      <canvas id="canvas" width="400" height="300"></canvas>
+      <div id="pixel-info">Hover over image to see pixel values</div>
+    </div>
+  </div>
+
+  <!-- Header keywords panel -->
+  <div class="panel" id="header-panel">
+    <div class="panel-title">Header Keywords</div>
+    <div class="panel-body">
+      <div class="empty-msg" id="header-empty">No header loaded</div>
+      <table class="data-table" id="header-table" style="display:none">
+        <thead><tr><th>Keyword</th><th>Value</th></tr></thead>
+        <tbody id="header-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Data table panel (for TABLE / BINTABLE HDUs) -->
+  <div class="panel" id="table-panel" style="display:none">
+    <div class="panel-title">Table Data</div>
+    <div class="panel-body">
+      <table class="data-table" id="fits-table">
+        <thead><tr id="fits-table-head"></tr></thead>
+        <tbody id="fits-table-body"></tbody>
+      </table>
+    </div>
+  </div>
+</main>
+
+<script type="module">
+  import { FITS } from '../../dist/index.js';
+  import { BLOCK_LENGTH, LINE_WIDTH } from '../../dist/index.js';
+
+  // ── State ──────────────────────────────────────────────────────────
+
+  let currentFits = null;
+  let currentPixels = null;
+  let currentImage = null;
+
+  const $ = (sel) => document.querySelector(sel);
+
+  // ── In-memory FITS builder (for "Generate Sample") ─────────────────
+
+  function card(s) { return s.padEnd(80, ' '); }
+
+  function makeHeaderBlock(cards) {
+    cards.push(card('END'));
+    let block = cards.map(c => c.padEnd(80, ' ')).join('');
+    const rem = block.length % 2880;
+    if (rem) block += ' '.repeat(2880 - rem);
+    return block;
+  }
+
+  function strToBytes(s) {
+    const a = new Uint8Array(s.length);
+    for (let i = 0; i < s.length; i++) a[i] = s.charCodeAt(i);
+    return a;
+  }
+
+  function padLen(n) { return n + ((2880 - (n % 2880)) % 2880); }
+
+  function generateSampleFits() {
+    const W = 64, H = 64, bitpix = -32;
+    const nPixels = W * H;
+    const pixels = new Array(nPixels);
+
+    // Generate a nice pattern: concentric rings + gradient
+    const cx = W / 2, cy = H / 2;
+    for (let y = 0; y < H; y++) {
+      for (let x = 0; x < W; x++) {
+        const dx = x - cx, dy = y - cy;
+        const r = Math.sqrt(dx * dx + dy * dy);
+        pixels[y * W + x] = Math.sin(r * 0.8) * 500 + 1000 + Math.random() * 50;
+      }
+    }
+
+    const headerStr = makeHeaderBlock([
+      card("SIMPLE  =                    T / Standard FITS"),
+      card("BITPIX  =                  -32 / IEEE single precision"),
+      card("NAXIS   =                    2 / Number of axes"),
+      card(`NAXIS1  =                   ${String(W).padStart(2)} / Width`),
+      card(`NAXIS2  =                   ${String(H).padStart(2)} / Height`),
+      card("BSCALE  =                  1.0 / Scale factor"),
+      card("BZERO   =                  0.0 / Zero offset"),
+      card("OBJECT  = 'Sample Pattern'     / Demo generated data"),
+      card("TELESCOP= 'fitsjs-ng Demo'     / Software"),
+      card("DATE    = '2025-01-01'         / Creation date"),
+    ]);
+    const headerBytes = strToBytes(headerStr);
+    const dataLen = padLen(nPixels * 4);
+
+    const buf = new ArrayBuffer(headerBytes.length + dataLen);
+    new Uint8Array(buf).set(headerBytes, 0);
+    const view = new DataView(buf);
+    const off = headerBytes.length;
+    for (let i = 0; i < nPixels; i++) {
+      view.setFloat32(off + i * 4, pixels[i], false);
+    }
+    return buf;
+  }
+
+  // ── Display logic ──────────────────────────────────────────────────
+
+  function formatBitpix(bitpix) {
+    const types = {
+      8: '8-bit unsigned int',
+      16: '16-bit signed int',
+      32: '32-bit signed int',
+      '-32': '32-bit float (IEEE 754)',
+      '-64': '64-bit float (IEEE 754)',
+    };
+    const desc = types[String(bitpix)] || '';
+    return desc ? `${bitpix} (${desc})` : String(bitpix);
+  }
+
+  function setStatus(msg) { $('#status').textContent = msg; }
+
+  function showInfo(entries) {
+    const grid = $('#info-grid');
+    grid.innerHTML = entries.map(([label, value]) =>
+      `<div class="info-item"><div class="info-label">${label}</div><div class="info-value">${value}</div></div>`
+    ).join('');
+  }
+
+  function showHeader(header) {
+    const tbody = $('#header-tbody');
+    const keys = header.keys();
+    tbody.innerHTML = keys.map(k => {
+      const v = header.get(k);
+      const display = typeof v === 'string' ? `'${v}'` : String(v);
+      return `<tr><td><strong>${k}</strong></td><td>${display}</td></tr>`;
+    }).join('');
+    $('#header-table').style.display = '';
+    $('#header-empty').style.display = 'none';
+  }
+
+  function renderImageToCanvas(pixels, width, height) {
+    const canvas = $('#canvas');
+    canvas.width = width;
+    canvas.height = height;
+
+    // Compute min/max for linear stretch
+    let min = Infinity, max = -Infinity;
+    for (let i = 0; i < pixels.length; i++) {
+      const v = pixels[i];
+      if (!isNaN(v)) {
+        if (v < min) min = v;
+        if (v > max) max = v;
+      }
+    }
+
+    const range = max - min || 1;
+    const ctx = canvas.getContext('2d');
+    const imgData = ctx.createImageData(width, height);
+    const data = imgData.data;
+
+    for (let i = 0; i < pixels.length; i++) {
+      const v = pixels[i];
+      const byte = isNaN(v) ? 0 : Math.round(((v - min) / range) * 255);
+      const idx = i * 4;
+      data[idx]     = byte;
+      data[idx + 1] = byte;
+      data[idx + 2] = byte;
+      data[idx + 3] = 255;
+    }
+
+    ctx.putImageData(imgData, 0, 0);
+
+    // Scale canvas visually if small
+    const maxDim = 512;
+    const scale = Math.max(1, Math.min(maxDim / width, maxDim / height));
+    canvas.style.width = `${Math.round(width * scale)}px`;
+    canvas.style.height = `${Math.round(height * scale)}px`;
+
+    return { min, max };
+  }
+
+  async function showTableData(table) {
+    const panel = $('#table-panel');
+    const headRow = $('#fits-table-head');
+    const body = $('#fits-table-body');
+
+    const cols = table.columns || [];
+    if (cols.length === 0) {
+      panel.style.display = 'none';
+      return;
+    }
+
+    headRow.innerHTML = cols.map(c => `<th>${c}</th>`).join('');
+
+    const maxRows = Math.min(table.rows, 200);
+    const rows = await table.getRows(0, maxRows);
+
+    body.innerHTML = '';
+    for (const row of rows) {
+      const tr = document.createElement('tr');
+      for (const col of cols) {
+        const td = document.createElement('td');
+        const val = row[col];
+        td.textContent = val == null ? '' : typeof val === 'number' ? val.toPrecision(6) : String(val);
+        tr.appendChild(td);
+      }
+      body.appendChild(tr);
+    }
+
+    panel.style.display = '';
+  }
+
+  async function displayHDU(index) {
+    const hdu = currentFits.hdus[index];
+    if (!hdu) return;
+
+    const header = hdu.header;
+    const dataType = header.getDataType();
+
+    showHeader(header);
+
+    // Hide table panel by default
+    $('#table-panel').style.display = 'none';
+
+    if (dataType === 'Image') {
+      const image = hdu.data;
+      currentImage = image;
+      const frame = await image.getFrame(0);
+      currentPixels = frame;
+
+      const { min, max } = renderImageToCanvas(frame, image.width, image.height);
+
+      showInfo([
+        ['Type', 'Image'],
+        ['Dimensions', `${image.width} × ${image.height}`],
+        ['BITPIX', formatBitpix(image.bitpix)],
+        ['Data Cube', image.isDataCube() ? `${image.depth} frames` : 'No'],
+        ['Min', min.toFixed(2)],
+        ['Max', max.toFixed(2)],
+        ['BZERO', image.bzero],
+        ['BSCALE', image.bscale],
+      ]);
+
+      setStatus(`HDU ${index}: Image ${image.width}×${image.height}`);
+    } else if (dataType === 'Table' || dataType === 'BinaryTable') {
+      const table = hdu.data;
+      currentImage = null;
+      currentPixels = null;
+
+      // Clear canvas
+      const canvas = $('#canvas');
+      const ctx = canvas.getContext('2d');
+      canvas.width = 400; canvas.height = 300;
+      ctx.fillStyle = '#111';
+      ctx.fillRect(0, 0, 400, 300);
+      ctx.fillStyle = '#666';
+      ctx.font = '14px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('Table HDU — no image data', 200, 150);
+      canvas.style.width = '400px';
+      canvas.style.height = '300px';
+
+      showInfo([
+        ['Type', dataType],
+        ['Rows', table.rows],
+        ['Columns', table.cols],
+        ['Row Size', `${table.rowByteSize} bytes`],
+      ]);
+
+      await showTableData(table);
+      setStatus(`HDU ${index}: ${dataType} (${table.rows} rows)`);
+    } else {
+      currentImage = null;
+      currentPixels = null;
+      showInfo([['Type', dataType ?? 'No data']]);
+      setStatus(`HDU ${index}: ${dataType ?? 'empty'}`);
+    }
+  }
+
+  async function loadFits(buffer) {
+    try {
+      setStatus('Parsing...');
+      const fits = FITS.fromArrayBuffer(buffer);
+      currentFits = fits;
+
+      // Populate HDU selector
+      const select = $('#hdu-select');
+      select.innerHTML = '';
+      for (let i = 0; i < fits.hdus.length; i++) {
+        const hdu = fits.hdus[i];
+        const type = hdu.header.getDataType() ?? 'empty';
+        const opt = document.createElement('option');
+        opt.value = i;
+        opt.textContent = `HDU ${i}: ${type}`;
+        select.appendChild(opt);
+      }
+      select.disabled = false;
+
+      // Show first HDU with data
+      let firstData = 0;
+      for (let i = 0; i < fits.hdus.length; i++) {
+        if (fits.hdus[i].hasData()) { firstData = i; break; }
+      }
+      select.value = firstData;
+      await displayHDU(firstData);
+    } catch (err) {
+      setStatus(`Error: ${err.message}`);
+      console.error(err);
+    }
+  }
+
+  // ── Event listeners ────────────────────────────────────────────────
+
+  $('#file-input').addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setStatus(`Loading ${file.name}...`);
+    const buffer = await file.arrayBuffer();
+    await loadFits(buffer);
+  });
+
+  $('#btn-sample').addEventListener('click', async () => {
+    setStatus('Generating sample...');
+    const buffer = generateSampleFits();
+    await loadFits(buffer);
+  });
+
+  $('#hdu-select').addEventListener('change', async (e) => {
+    const index = parseInt(e.target.value, 10);
+    await displayHDU(index);
+  });
+
+  // Pixel info on hover
+  $('#canvas').addEventListener('mousemove', (e) => {
+    if (!currentPixels || !currentImage) return;
+    const canvas = e.target;
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = currentImage.width / rect.width;
+    const scaleY = currentImage.height / rect.height;
+    const x = Math.floor((e.clientX - rect.left) * scaleX);
+    const y = Math.floor((e.clientY - rect.top) * scaleY);
+
+    if (x >= 0 && x < currentImage.width && y >= 0 && y < currentImage.height) {
+      const val = currentImage.getPixel(currentPixels, x, y);
+      $('#pixel-info').textContent = `Pixel (${x}, ${y}) = ${typeof val === 'number' ? val.toFixed(4) : val}`;
+    }
+  });
+
+  $('#canvas').addEventListener('mouseleave', () => {
+    $('#pixel-info').textContent = 'Hover over image to see pixel values';
+  });
+</script>
+
+</body>
+</html>

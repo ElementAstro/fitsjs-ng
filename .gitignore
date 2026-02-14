@@ -31,3 +31,4 @@ coverage/
 # VitePress
 docs/.vitepress/dist/
 docs/.vitepress/cache/
+.ace-tool/
