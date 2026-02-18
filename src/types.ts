@@ -2,7 +2,7 @@
  * FITS standard BITPIX values representing data types in image arrays.
  * Positive values are integer types, negative values are floating point.
  */
-export type BitPix = 8 | 16 | 32 | -32 | -64
+export type BitPix = 8 | 16 | 32 | 64 | -32 | -64
 
 /**
  * Extended BITPIX values used in compressed images (ZBITPIX).
@@ -98,6 +98,7 @@ export const TYPED_ARRAY_CONSTRUCTORS: Record<string, TypedArrayConstructor> = {
   B: Uint8Array,
   I: Int16Array,
   J: Int32Array,
+  K: BigInt64Array,
   E: Float32Array,
   D: Float64Array,
   1: Uint8Array,
@@ -112,6 +113,8 @@ export type TypedArrayConstructor =
   | Int16ArrayConstructor
   | Uint32ArrayConstructor
   | Int32ArrayConstructor
+  | BigInt64ArrayConstructor
+  | BigUint64ArrayConstructor
   | Float32ArrayConstructor
   | Float64ArrayConstructor
 
@@ -122,6 +125,8 @@ export type TypedArray =
   | Int16Array
   | Uint32Array
   | Int32Array
+  | BigInt64Array
+  | BigUint64Array
   | Float32Array
   | Float64Array
 

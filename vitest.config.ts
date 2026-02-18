@@ -12,7 +12,14 @@ export default defineConfig({
       provider: 'v8',
       reporter: ['text', 'json', 'html'],
       include: ['src/**/*.ts'],
-      exclude: ['src/**/*.d.ts'],
+      exclude: ['src/**/*.d.ts', 'src/hips-types.ts', 'src/xisf-types.ts'],
+      thresholds: {
+        perFile: false,
+        lines: 75,
+        branches: 60,
+        functions: 85,
+        statements: 75,
+      },
     },
   },
 })

@@ -10,6 +10,10 @@ import { FITS } from '../src/fits'
 import { Image as FITSImage } from '../src/image'
 import { Table as FITSTable } from '../src/table'
 import { BLOCK_LENGTH, LINE_WIDTH } from '../src/constants'
+import { XISF } from '../src/xisf'
+import { XISFWriter } from '../src/xisf-writer'
+import { convertFitsToXisf, convertXisfToFits } from '../src/convert'
+import type { XISFUnit } from '../src/xisf-types'
 
 // ─── FITS Builder Helpers ────────────────────────────────────────────────────
 
@@ -314,6 +318,96 @@ async function demoNodeBuffer() {
   console.log('Pixels:', Array.from(frame))
 }
 
+async function demoXisfInterop() {
+  separator('6. XISF Read/Write + FITS ↔ XISF Conversion')
+
+  const fitsBuffer = buildImage(
+    4,
+    3,
+    -32,
+    [1.25, 2.5, 3.75, 5.0, 6.25, 7.5, 8.75, 10.0, 11.25, 12.5, 13.75, 15.0],
+  )
+
+  const monolithicFromFits = (await convertFitsToXisf(fitsBuffer)) as ArrayBuffer
+  const parsedFromFits = await XISF.fromArrayBuffer(monolithicFromFits)
+  const image0 = parsedFromFits.getImage(0)!
+  console.log(
+    `FITS -> XISF: image sampleFormat=${image0.sampleFormat}, geometry=${image0.geometry.join('x')}`,
+  )
+
+  const fitsBack = await convertXisfToFits(parsedFromFits)
+  const fitsRoundTrip = FITS.fromArrayBuffer(fitsBack)
+  console.log(
+    `XISF -> FITS: BITPIX=${fitsRoundTrip.getHeader()?.get('BITPIX')}, NAXIS=${fitsRoundTrip.getHeader()?.get('NAXIS')}`,
+  )
+
+  const rawU16 = new Uint8Array(8)
+  const view = new DataView(rawU16.buffer)
+  view.setUint16(0, 0, true)
+  view.setUint16(2, 1024, true)
+  view.setUint16(4, 4096, true)
+  view.setUint16(6, 65535, true)
+
+  const unit: XISFUnit = {
+    metadata: [{ id: 'XISF:CreatorApplication', type: 'String', value: 'fitsjs-ng demo/index.ts' }],
+    images: [
+      {
+        id: 'DEMO_XISF',
+        geometry: [2, 2],
+        channelCount: 1,
+        sampleFormat: 'UInt16',
+        pixelStorage: 'Planar',
+        colorSpace: 'Gray',
+        dataBlock: {
+          location: { type: 'attachment', position: 0, size: rawU16.byteLength },
+          byteOrder: 'little',
+        },
+        data: rawU16,
+        properties: [],
+        tables: [],
+        fitsKeywords: [{ name: 'OBJECT', value: 'XISF demo object', comment: 'demo' }],
+      },
+    ],
+    standaloneProperties: [
+      { id: 'Demo:Description', type: 'String', value: 'Created in CLI demo' },
+    ],
+    standaloneTables: [],
+    version: '1.0',
+    signature: { present: false, verified: true },
+  }
+
+  const monolithic = await XISFWriter.toMonolithic(unit, { compression: 'zlib' })
+  const parsedMono = await XISF.fromArrayBuffer(monolithic)
+  console.log(
+    `XISFWriter.toMonolithic: metadata=${parsedMono.unit.metadata.length}, images=${parsedMono.unit.images.length}`,
+  )
+
+  const distributed = await XISFWriter.toDistributed(unit, { maxInlineBlockSize: 8 })
+  const parsedDistributed = await XISF.fromArrayBuffer(
+    distributed.header.buffer.slice(
+      distributed.header.byteOffset,
+      distributed.header.byteOffset + distributed.header.byteLength,
+    ),
+    {
+      headerDir: '/demo',
+      resourceResolver: {
+        resolveURL: async () => {
+          throw new Error('URL not expected in this demo')
+        },
+        resolvePath: async (path) => {
+          if (!path.endsWith('/blocks.xisb')) {
+            throw new Error(`Unexpected distributed path: ${path}`)
+          }
+          return distributed.blocks['blocks.xisb']!
+        },
+      },
+    },
+  )
+  console.log(
+    `XISFWriter.toDistributed: images=${parsedDistributed.unit.images.length}, first image bytes=${parsedDistributed.unit.images[0]?.data?.byteLength}`,
+  )
+}
+
 // ─── Main ────────────────────────────────────────────────────────────────────
 
 async function main() {
@@ -326,6 +420,7 @@ async function main() {
   await demoDataCube()
   await demoAsciiTable()
   await demoNodeBuffer()
+  await demoXisfInterop()
 
   separator('Done!')
   console.log('All demos completed successfully.\n')

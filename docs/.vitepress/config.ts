@@ -1,8 +1,8 @@
 import { defineConfig } from 'vitepress'
 
 export default defineConfig({
-  title: 'TypeScript Quick Starter',
-  description: 'A TypeScript library quick starter template',
+  title: 'fitsjs-ng',
+  description: 'TypeScript FITS/XISF/HiPS library for Node.js and browsers',
 
   base: '/typescript-quick-starter/',
 
@@ -22,6 +22,7 @@ export default defineConfig({
           items: [
             { text: 'Getting Started', link: '/guide/getting-started' },
             { text: 'Installation', link: '/guide/installation' },
+            { text: 'HiPS', link: '/guide/hips' },
           ],
         },
         {
@@ -36,14 +37,15 @@ export default defineConfig({
       '/api/': [
         {
           text: 'API Reference',
-          items: [{ text: 'Overview', link: '/api/' }],
+          items: [
+            { text: 'Overview', link: '/api/' },
+            { text: 'HiPS', link: '/api/hips' },
+          ],
         },
       ],
     },
 
-    socialLinks: [
-      { icon: 'github', link: 'https://github.com/your-username/typescript-quick-starter' },
-    ],
+    socialLinks: [{ icon: 'github', link: 'https://github.com/ElementAstro/fitsjs-ng' }],
 
     footer: {
       message: 'Released under the MIT License.',
@@ -55,7 +57,7 @@ export default defineConfig({
     },
 
     editLink: {
-      pattern: 'https://github.com/your-username/typescript-quick-starter/edit/main/docs/:path',
+      pattern: 'https://github.com/ElementAstro/fitsjs-ng/edit/main/docs/:path',
       text: 'Edit this page on GitHub',
     },
   },

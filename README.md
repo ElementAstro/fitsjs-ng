@@ -1,10 +1,16 @@
 # fitsjs-ng
 
-Modern TypeScript library for reading [FITS](https://fits.gsfc.nasa.gov/) (Flexible Image Transport System) astronomical files. A complete rewrite of [astrojs/fitsjs](https://github.com/astrojs/fitsjs) with Promise-based APIs, full type safety, and Node.js/browser dual support.
+Modern TypeScript library for reading and writing [FITS](https://fits.gsfc.nasa.gov/) and [XISF](https://pixinsight.com/xisf/) astronomical files. A complete rewrite of [astrojs/fitsjs](https://github.com/astrojs/fitsjs) with Promise-based APIs, full type safety, and Node.js/browser dual support.
 
 ## Features
 
-- **FITS Image Reading** — BITPIX 8, 16, 32, -32, -64 with BZERO/BSCALE scaling
+- **FITS Image Reading** — BITPIX 8, 16, 32, 64, -32, -64 with BZERO/BSCALE scaling
+- **FITS Image Writing** — build FITS HDUs and export complete FITS buffers
+- **XISF Read/Write** — monolithic (`.xisf`) and distributed (`.xish` + `.xisb`) workflows
+- **XISF Signature Verification** — XML-DSig `SignedInfo`/digest/signature verification with policy control
+- **XISF↔FITS Conversion** — strict conversion with metadata preservation
+- **HiPS Image + HiPS3D** — read/write HiPS properties, tiles, Allsky, and lint checks
+- **FITS↔HiPS Conversion** — build HiPS directories and export tile/map/cutout FITS
 - **Data Cubes** — Frame-by-frame reading of 3D+ image data
 - **ASCII Tables** — Fixed-width text table parsing (A/I/F/E/D format codes)
 - **Binary Tables** — All standard types (L/B/I/J/K/A/E/D/C/M/X), bit arrays, heap access
@@ -24,7 +30,7 @@ pnpm add fitsjs-ng
 ## Quick Start
 
 ```ts
-import { FITS, Image } from 'fitsjs-ng'
+import { FITS, XISF, XISFWriter, convertFitsToXisf, convertXisfToFits, Image } from 'fitsjs-ng'
 
 // From a URL
 const fits = await FITS.fromURL('https://example.com/image.fits')
@@ -47,6 +53,50 @@ console.log(header.get('NAXIS1')) // e.g. 1024
 const image = fits.getDataUnit() as Image
 const pixels = await image.getFrame(0)
 const [min, max] = image.getExtent(pixels)
+
+// XISF from URL / buffer
+const xisf = await XISF.fromURL('https://example.com/image.xisf')
+
+// Convert XISF -> FITS
+const fitsBytes = await convertXisfToFits(
+  await fetch('https://example.com/image.xisf').then((r) => r.arrayBuffer()),
+)
+
+// Convert FITS -> XISF (monolithic by default)
+const xisfBytes = await convertFitsToXisf(fitsBytes)
+
+// Write distributed XISF unit
+const distributed = await XISFWriter.toDistributed(xisf.unit)
+// distributed.header => .xish bytes, distributed.blocks['blocks.xisb'] => .xisb bytes
+```
+
+### HiPS Quick Start
+
+```ts
+import { NodeFSTarget, convertFitsToHiPS, convertHiPSToFITS, HiPS, lintHiPS } from 'fitsjs-ng'
+
+const target = new NodeFSTarget('./out/my-hips')
+await convertFitsToHiPS(fitsArrayBuffer, {
+  output: target,
+  title: 'My Survey',
+  creatorDid: 'ivo://example/my-survey',
+  hipsOrder: 6,
+  tileWidth: 512,
+  formats: ['fits', 'png'],
+  interpolation: 'bilinear',
+})
+
+const hips = await HiPS.open('./out/my-hips')
+const tile = await hips.readTile({ order: 6, ipix: 12345, format: 'fits' })
+
+const cutoutFits = await convertHiPSToFITS('./out/my-hips', {
+  cutout: { width: 1024, height: 1024, ra: 83.63, dec: 22.01, fov: 1.2 },
+  backend: 'auto', // local first, fallback to hips2fits if hipsId is set
+  hipsId: 'CDS/P/2MASS/K',
+})
+
+const lint = await lintHiPS('./out/my-hips')
+console.log(lint.ok, lint.issues)
 ```
 
 ## API Reference
@@ -61,6 +111,46 @@ Static factory methods:
 | `FITS.fromBlob(blob)`          | Parse from `Blob`/`File` (async)    |
 | `FITS.fromURL(url)`            | Fetch and parse remote file (async) |
 | `FITS.fromNodeBuffer(buffer)`  | Parse from Node.js `Buffer` (sync)  |
+
+### `XISF`
+
+Static factory methods:
+
+| Method                         | Description                              |
+| ------------------------------ | ---------------------------------------- |
+| `XISF.fromArrayBuffer(buffer)` | Parse from `ArrayBuffer`                 |
+| `XISF.fromBlob(blob)`          | Parse from `Blob`/`File`                 |
+| `XISF.fromURL(url)`            | Fetch and parse remote `.xisf`/`.xish`   |
+| `XISF.fromNodeBuffer(buffer)`  | Parse from Node.js `Buffer`-like payload |
+
+### `XISFWriter`
+
+| Method                       | Description                                      |
+| ---------------------------- | ------------------------------------------------ |
+| `XISFWriter.toMonolithic()`  | Serialize to monolithic `.xisf` bytes            |
+| `XISFWriter.toDistributed()` | Serialize to distributed `.xish` + `.xisb` bytes |
+
+### Conversion
+
+| Method                              | Description                                        |
+| ----------------------------------- | -------------------------------------------------- |
+| `convertXisfToFits(input)`          | Convert XISF to FITS bytes                         |
+| `convertFitsToXisf(input)`          | Convert FITS to XISF bytes (or distributed object) |
+| `convertFitsToHiPS(input, options)` | Convert FITS to HiPS directory                     |
+| `convertHiPSToFITS(input, options)` | Export HiPS to FITS tile/map/cutout                |
+
+### HiPS
+
+| Method / Class                           | Description                                       |
+| ---------------------------------------- | ------------------------------------------------- |
+| `HiPS.open(source)`                      | Open HiPS from local path, URL, or storage target |
+| `HiPS.getProperties()`                   | Load and parse `properties`                       |
+| `HiPS.readTile({ order, ipix, format })` | Read/decode one tile                              |
+| `NodeFSTarget`                           | Node filesystem output target                     |
+| `BrowserZipTarget`                       | Browser ZIP output target                         |
+| `BrowserOPFSTarget`                      | Browser OPFS output target                        |
+| `HiPSProperties`                         | Parse/serialize/validate HiPS properties          |
+| `lintHiPS(source)`                       | Validate metadata and structure                   |
 
 Instance methods:
 
@@ -84,13 +174,40 @@ Instance methods:
 
 ### `Image`
 
-| Method                    | Description                       |
-| ------------------------- | --------------------------------- |
-| `getFrame(frame?)`        | Read a single frame (async)       |
-| `getFrames(start, count)` | Read multiple frames (async)      |
-| `getExtent(pixels)`       | Compute `[min, max]` ignoring NaN |
-| `getPixel(pixels, x, y)`  | Get pixel at (x, y)               |
-| `isDataCube()`            | Whether NAXIS > 2                 |
+| Method                     | Description                                               |
+| -------------------------- | --------------------------------------------------------- |
+| `getFrame(frame?)`         | Read a single frame (async)                               |
+| `getFrameAsNumber(frame?)` | Read frame as `Float64Array` (explicitly lossy for int64) |
+| `getFrames(start, count)`  | Read multiple frames (async)                              |
+| `getExtent(pixels)`        | Compute `[min, max]` (`number`/`bigint`)                  |
+| `getPixel(pixels, x, y)`   | Get pixel at (x, y) (`number`/`bigint`)                   |
+| `isDataCube()`             | Whether NAXIS > 2                                         |
+
+`BITPIX=64` reads use lossless `BigInt64Array` on the primary path when linear scaling is exact (`BSCALE=1`, safe-integer `BZERO`). Use `getFrameAsNumber()` only when you intentionally accept precision loss.
+
+### XISF Signature Policy
+
+`XISF.fromArrayBuffer()` accepts:
+
+- `signaturePolicy: 'require' | 'warn' | 'ignore'` (default: `'require'`)
+- `verifySignatures` (default: `true`)
+
+Behavior:
+
+- **`require`**: signed documents must verify; failures throw `XISFSignatureError`
+- **`warn`**: signature failures are reported through warnings and `unit.signature`
+- **`ignore`**: signature verification is skipped
+
+When a detached signature is present and verification is enabled, checksum verification is forced for attachment/path/url data blocks.
+
+### FITS↔XISF Preservation Scope
+
+`convertFitsToXisf()` / `convertXisfToFits()` preserve:
+
+- FITS keyword values **and comments** (`Header.getCards()` based mapping)
+- non-image HDUs through `FITS:PreservedHDULayout` metadata (reversible card+payload container)
+
+For `BITPIX=64`, canonical unsigned encoding (`BSCALE=1`, `BZERO=9223372036854775808`) is detected with strict raw-card parsing (no tolerance heuristics).
 
 ### `Table` (ASCII)
 
@@ -169,7 +286,23 @@ pnpm test          # Run tests
 pnpm build         # Build library
 pnpm typecheck     # Type check
 pnpm lint          # Lint
+pnpm demo          # FITS/XISF CLI demo
+pnpm demo:hips     # HiPS Node demo (FITS->HiPS->FITS)
+pnpm demo:xisf     # XISF Node demo (FITS<->XISF, monolithic/distributed)
+pnpm demo:web      # Serve web demos (open /demo/web/index.html, /demo/web/hips.html, /demo/web/xisf.html)
 ```
+
+## Standards & Compatibility
+
+- HiPS metadata and directory naming follow HiPS 1.0 conventions (`Norder*/Dir*/Npix*`, `Norder3/Allsky.*`, `properties`, `Moc.fits`).
+- FITS writing follows FITS 4.0 card/block alignment rules (80-char cards, 2880-byte blocks).
+- Output `properties` defaults to `hips_version=1.4` and also writes legacy compatibility fields (`coordsys`, `maxOrder`, `format`).
+
+## Remote Backend Behavior
+
+- `backend: 'local'`: all conversion is performed locally.
+- `backend: 'remote'`: cutout export uses CDS hips2fits endpoint directly.
+- `backend: 'auto'`: try local cutout first, then fallback to hips2fits when `hipsId` is provided.
 
 ## Credits
 

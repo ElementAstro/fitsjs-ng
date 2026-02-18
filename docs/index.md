@@ -2,9 +2,9 @@
 layout: home
 
 hero:
-  name: TypeScript Quick Starter
-  text: A Modern TypeScript Library Template
-  tagline: Build, test, and publish TypeScript libraries with best practices out of the box.
+  name: fitsjs-ng
+  text: FITS, XISF, and HiPS in TypeScript
+  tagline: Read/write FITS and XISF, plus end-to-end HiPS conversion for Node.js and browsers.
   actions:
     - theme: brand
       text: Get Started
@@ -14,19 +14,19 @@ hero:
       link: /api/
     - theme: alt
       text: View on GitHub
-      link: https://github.com/your-username/typescript-quick-starter
+      link: https://github.com/ElementAstro/fitsjs-ng
 
 features:
-  - title: TypeScript First
-    details: Strict TypeScript configuration with full type safety and declaration generation.
-    icon: 🔷
-  - title: Dual Format Output
-    details: Outputs both ESM and CJS formats with proper package.json exports field.
-    icon: 📦
-  - title: Modern Toolchain
-    details: Powered by tsup, Vitest, ESLint, and Prettier for a seamless development experience.
-    icon: ⚡
-  - title: CI/CD Ready
-    details: GitHub Actions workflows for testing, building, and deploying documentation.
-    icon: 🚀
+  - title: FITS + XISF
+    details: Parse, inspect, and write astronomy image and table formats with strict TypeScript types.
+    icon: 🔭
+  - title: HiPS Conversion
+    details: Build HiPS directories from FITS and export HiPS tile/map/cutout back to FITS.
+    icon: 🗺️
+  - title: Dual Runtime
+    details: Works in Node.js and modern browsers, with filesystem, ZIP, and OPFS write targets.
+    icon: 🌐
+  - title: Tested Pipeline
+    details: End-to-end tests cover existing FITS/XISF behavior and new HiPS conversion flow.
+    icon: ✅
 ---

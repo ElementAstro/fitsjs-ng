@@ -56,7 +56,7 @@ export const VerifyFns: Record<
   BITPIX(ctx, value) {
     const v = parseInt(String(value), 10)
     verifyOrder(ctx, 'BITPIX', 1)
-    if (![8, 16, 32, -32, -64].includes(v)) {
+    if (![8, 16, 32, 64, -32, -64].includes(v)) {
       throw new HeaderError(`BITPIX value ${v} is not permitted`)
     }
     return v

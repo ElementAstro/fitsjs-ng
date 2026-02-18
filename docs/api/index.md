@@ -69,7 +69,7 @@ hasDataUnit(): boolean
 
 ## Image
 
-Reads FITS image data (BITPIX 8, 16, 32, -32, -64).
+Reads FITS image data (BITPIX 8, 16, 32, 64, -32, -64).
 
 ### Properties
 
@@ -87,12 +87,34 @@ readonly naxis: number[]
 
 ```ts
 async getFrame(index: number): Promise<TypedArray>
+async getFrameAsNumber(index?: number): Promise<Float64Array>
 async getFrames(start: number, count: number): Promise<TypedArray[]>
-getExtent(arr: TypedArray): [number, number]
-getPixel(arr: TypedArray, x: number, y: number): number
+getExtent(arr: TypedArray): [number | bigint, number | bigint]
+getPixel(arr: TypedArray, x: number, y: number): number | bigint
 isDataCube(): boolean
 async *[Symbol.asyncIterator](): AsyncIterableIterator<TypedArray>  // iterate frames
 ```
+
+`getFrame()` keeps `BITPIX=64` data lossless as bigint where possible. Use `getFrameAsNumber()` only for explicit lossy conversion.
+
+---
+
+## XISF Signature Verification
+
+`XISF.fromArrayBuffer()` supports:
+
+```ts
+{
+  verifySignatures?: boolean           // default true
+  signaturePolicy?: 'require' | 'warn' | 'ignore' // default 'require'
+}
+```
+
+- `require`: throw on signed-document verification failure
+- `warn`: continue parse and report signature failure
+- `ignore`: skip signature verification
+
+For signed documents, checksum verification is forced for attachment/path/url blocks.
 
 ---
 
@@ -181,3 +203,14 @@ function getExtent(arr: TypedArray): [number, number]
 function getPixel(arr: TypedArray, x: number, y: number, width: number): number
 function riceDecompress(...): void
 ```
+
+---
+
+## HiPS APIs
+
+HiPS-specific APIs are documented in [`/api/hips`](/api/hips), including:
+
+- `HiPS`, `HiPSProperties`
+- `convertFitsToHiPS`, `convertHiPSToFITS`
+- `NodeFSTarget`, `BrowserZipTarget`, `BrowserOPFSTarget`
+- `lintHiPS`

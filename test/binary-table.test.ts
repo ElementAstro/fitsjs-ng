@@ -134,6 +134,14 @@ describe('BinaryTable', () => {
       expect(arr[1]).toBeCloseTo(-9.87654321, 8)
       expect(off).toBe(16)
     })
+
+    it('K accessor should read int64 as bigint', () => {
+      const buf = new ArrayBuffer(8)
+      new DataView(buf).setBigInt64(0, BigInt(1234), false)
+      const [val, off] = DATA_ACCESSORS['K']!(new DataView(buf), 0)
+      expect(val).toBe(1234n)
+      expect(off).toBe(8)
+    })
   })
 
   describe('Single-value column reading', () => {
@@ -295,6 +303,66 @@ describe('BinaryTable', () => {
       const { header, data } = makeBinaryTableBuffer([{ name: 'X', form: '1J' }], 4, rowBuf)
       const table = new BinaryTable(header, data)
       await expect(table.getColumn('NONEXISTENT')).rejects.toThrow('not found')
+    })
+  })
+
+  describe('edge branches', () => {
+    it('throws when heap data is requested but not available on blob-backed table', async () => {
+      const row = new ArrayBuffer(8)
+      const view = new DataView(row)
+      view.setInt32(0, 1, false)
+      view.setInt32(4, 0, false)
+      const { header } = makeBinaryTableBuffer([{ name: 'ARR', form: '1PB' }], 8, row, 1)
+      const table = new BinaryTable(header, new Blob([new Uint8Array(row)]))
+      await expect(table.getRows(0, 1)).rejects.toThrow('Heap not available')
+    })
+
+    it('throws when variable-length descriptor has no typed array constructor', async () => {
+      const row = new ArrayBuffer(8)
+      const rowView = new DataView(row)
+      rowView.setInt32(0, 1, false)
+      rowView.setInt32(4, 0, false)
+      const heap = Uint8Array.from([1]).buffer
+      const { header, data } = makeBinaryTableBuffer(
+        [{ name: 'ARR', form: '1PL' }],
+        8,
+        row,
+        1,
+        heap,
+      )
+      const table = new BinaryTable(header, data)
+      await expect(table.getRows(0, 1)).rejects.toThrow('No typed array constructor')
+    })
+
+    it('throws for invalid internal accessor setup descriptors', () => {
+      const row = new ArrayBuffer(4)
+      new DataView(row).setInt32(0, 1, false)
+      const { header, data } = makeBinaryTableBuffer([{ name: 'X', form: '1J' }], 4, row)
+      const table = new BinaryTable(header, data) as unknown as {
+        setupSingleAccessor(descriptor: string): void
+        setupMultiAccessor(descriptor: string, count: number): void
+      }
+
+      expect(() => table.setupSingleAccessor('Z')).toThrow('Unknown binary table type code')
+      expect(() => table.setupMultiAccessor('Z', 2)).toThrow('Unknown binary table type code')
+    })
+
+    it('supports generic heap arrays and explicit GZIP compressed-data accessors', async () => {
+      const row = new ArrayBuffer(8)
+      const rowView = new DataView(row)
+      rowView.setInt32(0, 1, false)
+      rowView.setInt32(4, 0, false)
+      const heap = Uint8Array.from([99]).buffer
+      const generic = makeBinaryTableBuffer([{ name: 'ARR', form: '1PB' }], 8, row, 1, heap)
+      const genericTable = new BinaryTable(generic.header, generic.data)
+      const rows = (await genericTable.getRows(0, 1)) as Record<string, unknown>[]
+      expect(Array.from(rows[0]!['ARR'] as Uint8Array)).toEqual([99])
+
+      const gzip = makeBinaryTableBuffer([{ name: 'GZIP_COMPRESSED_DATA', form: '1PB' }], 8, row, 0)
+      const gzipTable = new BinaryTable(gzip.header, gzip.data)
+      await expect(gzipTable.getRows(0, 1)).rejects.toThrow(
+        'GZIP decompression is not yet implemented',
+      )
     })
   })
 })

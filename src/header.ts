@@ -136,6 +136,19 @@ export class Header implements VerifyContext {
   }
 
   /**
+   * Returns parsed keyword cards in original insertion order, with comments.
+   */
+  getCards(): Array<{ key: string; value: CardValue; comment: string }> {
+    return [...this.cards.entries()]
+      .sort((a, b) => a[1].index - b[1].index)
+      .map(([key, card]) => ({
+        key,
+        value: card.value,
+        comment: card.comment,
+      }))
+  }
+
+  /**
    * Determine if this header has an associated data unit based on NAXIS.
    */
   hasDataUnit(): boolean {

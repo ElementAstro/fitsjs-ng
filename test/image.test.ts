@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { FITS } from '../src/fits'
 import { Image } from '../src/image'
+import { createImageBytesFromArray, createImageHDU, writeFITS } from '../src/fits-writer'
 import { makeSimpleImage, makeSimpleImageWithBzero } from './helpers'
 
 describe('Image', () => {
@@ -101,6 +102,38 @@ describe('Image', () => {
     expect(image.getPixel(frame, 1, 0)).toBeCloseTo(-9.87654321098765, 12)
     expect(image.getPixel(frame, 0, 1)).toBeCloseTo(0.0, 12)
     expect(image.getPixel(frame, 1, 1)).toBeCloseTo(1e100, 85)
+  })
+
+  it('should preserve BITPIX=64 integer precision with bigint frames', async () => {
+    const hdu = createImageHDU({
+      width: 2,
+      height: 1,
+      bitpix: 64,
+      data: createImageBytesFromArray([9007199254740993n, -9007199254740991n], 64),
+    })
+    const fits = FITS.fromArrayBuffer(writeFITS([hdu]))
+    const image = fits.getDataUnit() as Image
+    const frame = await image.getFrame()
+
+    expect(frame).toBeInstanceOf(BigInt64Array)
+    expect(image.getPixel(frame, 0, 0)).toBe(9007199254740993n)
+    expect(image.getPixel(frame, 1, 0)).toBe(-9007199254740991n)
+    expect(image.getExtent(frame)).toEqual([-9007199254740991n, 9007199254740993n])
+  })
+
+  it('should support explicit lossy number conversion for BITPIX=64 frames', async () => {
+    const hdu = createImageHDU({
+      width: 2,
+      height: 1,
+      bitpix: 64,
+      data: createImageBytesFromArray([123n, 456n], 64),
+    })
+    const fits = FITS.fromArrayBuffer(writeFITS([hdu]))
+    const image = fits.getDataUnit() as Image
+    const frame = await image.getFrameAsNumber()
+
+    expect(frame).toBeInstanceOf(Float64Array)
+    expect(Array.from(frame)).toEqual([123, 456])
   })
 
   it('should compute extent (min/max)', async () => {

@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>fitsjs-ng — HiPS Web Demo</title>
+  <style>
+    :root {
+      --bg: #f7f5ef;
+      --paper: #fffdf7;
+      --ink: #1f1a17;
+      --muted: #6f665f;
+      --line: #d4cabe;
+      --accent: #0f7a68;
+      --warn: #a2582b;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--ink);
+      font-family: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Palatino, serif;
+      background:
+        radial-gradient(1000px 380px at 10% -10%, #efe9dc 0%, transparent 60%),
+        radial-gradient(700px 320px at 90% 0%, #d5ebe5 0%, transparent 58%),
+        linear-gradient(180deg, var(--bg) 0%, #f4f0e7 100%);
+      padding: 24px;
+    }
+
+    .shell {
+      max-width: 1180px;
+      margin: 0 auto;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: var(--paper);
+      box-shadow: 0 28px 70px rgba(44, 32, 20, 0.12);
+      overflow: hidden;
+    }
+
+    header {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 14px;
+      align-items: end;
+      padding: 22px 24px 16px;
+      border-bottom: 1px solid var(--line);
+      background:
+        linear-gradient(115deg, rgba(15,122,104,0.1), rgba(15,122,104,0.03) 45%, transparent 70%),
+        var(--paper);
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 30px;
+      line-height: 1.1;
+      letter-spacing: 0.01em;
+    }
+
+    .subtitle {
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 15px;
+    }
+
+    .nav {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .nav a {
+      text-decoration: none;
+      color: var(--ink);
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 8px 12px;
+      font-size: 13px;
+      background: #fff;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 420px 1fr;
+      min-height: 620px;
+    }
+
+    .left {
+      border-right: 1px solid var(--line);
+      padding: 20px;
+      background: linear-gradient(180deg, #fffdf8 0%, #faf6ec 100%);
+    }
+
+    .right {
+      padding: 20px;
+      background: #fffefb;
+    }
+
+    .block {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 14px;
+      background: #fff;
+      margin-bottom: 14px;
+    }
+
+    .block h2 {
+      margin: 0 0 10px;
+      font-size: 16px;
+    }
+
+    .row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 10px;
+    }
+
+    .controls-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .controls-grid label {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      color: var(--muted);
+      font-family: ui-sans-serif, system-ui, sans-serif;
+      font-size: 11px;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+    }
+
+    .controls-grid select {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fffdfa;
+      color: var(--ink);
+      padding: 7px 8px;
+      font-size: 12px;
+      text-transform: none;
+      letter-spacing: 0;
+    }
+
+    button {
+      border: 1px solid #93b9b1;
+      background: linear-gradient(180deg, #0f8b75, #0d7765);
+      color: #fff;
+      border-radius: 8px;
+      padding: 8px 12px;
+      cursor: pointer;
+      font-size: 13px;
+      font-family: ui-sans-serif, system-ui, sans-serif;
+      font-weight: 600;
+    }
+
+    button.secondary {
+      background: #fff;
+      color: var(--ink);
+      border: 1px solid var(--line);
+      font-weight: 500;
+    }
+
+    button:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+
+    .meta {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .card {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fffdfa;
+      padding: 8px;
+      font-size: 12px;
+      font-family: ui-sans-serif, system-ui, sans-serif;
+      line-height: 1.4;
+    }
+
+    pre {
+      margin: 0;
+      min-height: 520px;
+      max-height: 700px;
+      overflow: auto;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 14px;
+      background: #1f2326;
+      color: #d9f0ea;
+      font-size: 12px;
+      line-height: 1.5;
+      font-family: "Cascadia Code", "Fira Code", ui-monospace, monospace;
+    }
+
+    #meta a {
+      display: inline-block;
+      margin-top: 8px;
+      color: #0b6f5e;
+      text-decoration: none;
+      border-bottom: 1px dashed #0b6f5e;
+      font-family: ui-sans-serif, system-ui, sans-serif;
+      font-size: 12px;
+    }
+
+    @media (max-width: 980px) {
+      .grid {
+        grid-template-columns: 1fr;
+      }
+      .left {
+        border-right: 0;
+        border-bottom: 1px solid var(--line);
+      }
+      .meta {
+        grid-template-columns: 1fr;
+      }
+      .controls-grid {
+        grid-template-columns: 1fr;
+      }
+      pre {
+        min-height: 260px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <header>
+      <div>
+        <h1>HiPS Build Console</h1>
+        <div class="subtitle">
+          Browser-side FITS → HiPS conversion, ZIP/OPFS export, and HiPS → FITS cutout/map workflows.
+        </div>
+      </div>
+      <div class="nav">
+        <a href="./index.html">FITS Demo</a>
+        <a href="./xisf.html">XISF Demo</a>
+      </div>
+    </header>
+
+    <div class="grid">
+      <aside class="left">
+        <div class="block">
+          <h2>Build Actions</h2>
+          <div class="controls-grid">
+            <label>
+              Dataset
+              <select id="data-mode">
+                <option value="image">2D Survey</option>
+                <option value="cube">3D Cube</option>
+              </select>
+            </label>
+            <label>
+              HiPS Order
+              <select id="hips-order">
+                <option value="2">2</option>
+                <option value="3" selected>3</option>
+                <option value="4">4</option>
+              </select>
+            </label>
+            <label>
+              Tile Width
+              <select id="tile-width">
+                <option value="64" selected>64</option>
+                <option value="128">128</option>
+                <option value="256">256</option>
+              </select>
+            </label>
+            <label>
+              Formats
+              <select id="format-profile">
+                <option value="fits,png,jpeg" selected>FITS + PNG + JPEG</option>
+                <option value="fits,png">FITS + PNG</option>
+                <option value="fits">FITS only</option>
+              </select>
+            </label>
+            <label>
+              Cutout Interp
+              <select id="cutout-interp">
+                <option value="bilinear" selected>bilinear</option>
+                <option value="nearest">nearest</option>
+                <option value="bicubic">bicubic</option>
+              </select>
+            </label>
+          </div>
+          <div class="row">
+            <button id="btn-zip">Build HiPS to ZIP</button>
+            <button id="btn-opfs" class="secondary">Build HiPS to OPFS</button>
+            <button id="btn-lint" class="secondary">Lint Last Build</button>
+            <button id="btn-clear" class="secondary">Clear Log</button>
+          </div>
+        </div>
+
+        <div class="block">
+          <h2>Result Snapshot</h2>
+          <div class="meta" id="meta"></div>
+        </div>
+      </aside>
+
+      <section class="right">
+        <pre id="log"></pre>
+      </section>
+    </div>
+  </div>
+
+  <script type="importmap">
+    {
+      "imports": {
+        "@xmldom/xmldom": "https://esm.sh/@xmldom/xmldom@0.8.11",
+        "fflate": "https://esm.sh/fflate@0.8.2",
+        "js-sha3": "https://esm.sh/js-sha3@0.9.3",
+        "fast-png": "https://esm.sh/fast-png@8.0.0",
+        "jpeg-js": "https://esm.sh/jpeg-js@0.4.4",
+        "@hscmap/healpix": "https://esm.sh/@hscmap/healpix@1.4.12",
+        "@fxpineau/moc-wasm": "https://esm.sh/@fxpineau/moc-wasm@0.11.0"
+      }
+    }
+  </script>
+
+  <script type="module">
+    import {
+      BrowserZipTarget,
+      BrowserOPFSTarget,
+      convertFitsToHiPS,
+      convertHiPSToFITS,
+      createImageBytesFromArray,
+      createImageHDU,
+      lintHiPS,
+      writeFITS,
+    } from '../../dist/index.js'
+
+    const $ = (q) => document.querySelector(q)
+    const logEl = $('#log')
+    const metaEl = $('#meta')
+    const dataModeEl = $('#data-mode')
+    const hipsOrderEl = $('#hips-order')
+    const tileWidthEl = $('#tile-width')
+    const formatProfileEl = $('#format-profile')
+    const cutoutInterpEl = $('#cutout-interp')
+
+    let lastHiPSSource = null
+    let lastBuildLabel = ''
+
+    function log(msg) {
+      logEl.textContent += `${msg}\n`
+      logEl.scrollTop = logEl.scrollHeight
+    }
+
+    function setMeta(entries) {
+      metaEl.innerHTML = entries
+        .map(([k, v]) => `<div class="card"><strong>${k}</strong><br/>${String(v)}</div>`)
+        .join('')
+    }
+
+    function readDemoConfig() {
+      const dataMode = dataModeEl.value === 'cube' ? 'cube' : 'image'
+      const hipsOrder = Number.parseInt(hipsOrderEl.value, 10) || 3
+      const tileWidth = Number.parseInt(tileWidthEl.value, 10) || 64
+      const formats = formatProfileEl.value.split(',').map((v) => v.trim()).filter(Boolean)
+      const interpolation = cutoutInterpEl.value || 'bilinear'
+      return { dataMode, hipsOrder, tileWidth, formats, interpolation }
+    }
+
+    function makeSampleFits(width = 192, height = 96) {
+      const values = new Float32Array(width * height)
+      for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+          const dx = x - width / 2
+          const dy = y - height / 2
+          values[y * width + x] = Math.cos(dx * 0.07) * Math.sin(dy * 0.05) * 400 + 700
+        }
+      }
+
+      const hdu = createImageHDU({
+        primary: true,
+        width,
+        height,
+        bitpix: -32,
+        data: createImageBytesFromArray(values, -32),
+        additionalCards: [
+          { key: 'CTYPE1', value: 'RA---TAN' },
+          { key: 'CTYPE2', value: 'DEC--TAN' },
+          { key: 'CRVAL1', value: 180 },
+          { key: 'CRVAL2', value: 0 },
+          { key: 'CRPIX1', value: width / 2 + 0.5 },
+          { key: 'CRPIX2', value: height / 2 + 0.5 },
+          { key: 'CDELT1', value: -0.03 },
+          { key: 'CDELT2', value: 0.03 },
+        ],
+      })
+      return writeFITS([hdu])
+    }
+
+    function makeSampleFitsCube(width = 96, height = 48, depth = 3) {
+      const values = new Float32Array(width * height * depth)
+      for (let z = 0; z < depth; z++) {
+        for (let y = 0; y < height; y++) {
+          for (let x = 0; x < width; x++) {
+            const i = z * width * height + y * width + x
+            const dx = x - width / 2
+            const dy = y - height / 2
+            values[i] = Math.sin((dx + z * 4) * 0.08) * Math.cos((dy + z * 3) * 0.07) * 300 + 500 + z * 220
+          }
+        }
+      }
+      const hdu = createImageHDU({
+        primary: true,
+        width,
+        height,
+        depth,
+        bitpix: -32,
+        data: createImageBytesFromArray(values, -32),
+        additionalCards: [
+          { key: 'CTYPE1', value: 'RA---TAN' },
+          { key: 'CTYPE2', value: 'DEC--TAN' },
+          { key: 'CRVAL1', value: 180 },
+          { key: 'CRVAL2', value: 0 },
+          { key: 'CRPIX1', value: width / 2 + 0.5 },
+          { key: 'CRPIX2', value: height / 2 + 0.5 },
+          { key: 'CDELT1', value: -0.03 },
+          { key: 'CDELT2', value: 0.03 },
+        ],
+      })
+      return writeFITS([hdu])
+    }
+
+    function makeInputFits(config) {
+      return config.dataMode === 'cube' ? makeSampleFitsCube() : makeSampleFits()
+    }
+
+    async function runZipDemo() {
+      const config = readDemoConfig()
+      const fits = makeInputFits(config)
+      const zipTarget = new BrowserZipTarget()
+      log(`[ZIP] converting ${config.dataMode.toUpperCase()} FITS -> HiPS ...`)
+      const build = await convertFitsToHiPS(fits, {
+        output: zipTarget,
+        title: 'Web ZIP HiPS demo',
+        creatorDid: 'ivo://fitsjs-ng/demo/web-zip',
+        hipsOrder: config.hipsOrder,
+        minOrder: 1,
+        tileWidth: config.tileWidth,
+        formats: config.formats,
+      })
+
+      const lint = await lintHiPS(zipTarget)
+      const cutout = await convertHiPSToFITS(zipTarget, {
+        cutout: { width: 256, height: 128, ra: 180, dec: 0, fov: 4, interpolation: config.interpolation },
+      })
+      const map = await convertHiPSToFITS(zipTarget, {
+        map: { order: Math.max(1, config.hipsOrder - 1), ordering: 'NESTED' },
+      })
+
+      const zipBlob = await zipTarget.finalize()
+      const href = URL.createObjectURL(zipBlob)
+      const link = document.createElement('a')
+      link.href = href
+      link.download = 'fitsjs-hips-demo.zip'
+      link.textContent = 'Download generated ZIP'
+      link.style.display = 'inline-block'
+      link.style.marginTop = '10px'
+      metaEl.appendChild(link)
+
+      setMeta([
+        ['Dataset', config.dataMode === 'cube' ? 'HiPS3D cube' : '2D image'],
+        ['Formats', config.formats.join(', ')],
+        ['Tile Width', config.tileWidth],
+        ['Generated tiles', build.generatedTiles],
+        ['Order range', `${build.minOrder}..${build.maxOrder}`],
+        ['Lint OK', lint.ok],
+        ['Cutout FITS bytes', cutout.byteLength],
+        ['Map FITS bytes', map.byteLength],
+      ])
+      lastHiPSSource = zipTarget
+      lastBuildLabel = 'ZIP target'
+      log('[ZIP] done.')
+    }
+
+    async function runOPFSDemo() {
+      if (!('storage' in navigator) || !navigator.storage.getDirectory) {
+        log('[OPFS] not available in this browser context.')
+        return
+      }
+      const config = readDemoConfig()
+      const fits = makeInputFits(config)
+      const opfsTarget = new BrowserOPFSTarget('fitsjs-ng-hips-demo')
+      log(`[OPFS] converting ${config.dataMode.toUpperCase()} FITS -> HiPS ...`)
+      const build = await convertFitsToHiPS(fits, {
+        output: opfsTarget,
+        title: 'Web OPFS HiPS demo',
+        creatorDid: 'ivo://fitsjs-ng/demo/web-opfs',
+        hipsOrder: config.hipsOrder,
+        minOrder: 1,
+        tileWidth: config.tileWidth,
+        formats: config.formats,
+      })
+
+      const cutout = await convertHiPSToFITS(opfsTarget, {
+        cutout: { width: 128, height: 64, ra: 180, dec: 0, fov: 3, interpolation: config.interpolation },
+      })
+
+      setMeta([
+        ['Dataset', config.dataMode === 'cube' ? 'HiPS3D cube' : '2D image'],
+        ['Formats', config.formats.join(', ')],
+        ['Tile Width', config.tileWidth],
+        ['Generated tiles', build.generatedTiles],
+        ['Order range', `${build.minOrder}..${build.maxOrder}`],
+        ['Cutout FITS bytes', cutout.byteLength],
+        ['OPFS root', 'fitsjs-ng-hips-demo'],
+      ])
+      lastHiPSSource = opfsTarget
+      lastBuildLabel = 'OPFS target'
+      log('[OPFS] done.')
+    }
+
+    async function runLintLast() {
+      if (!lastHiPSSource) {
+        log('[LINT] no previous build result. Run ZIP or OPFS build first.')
+        return
+      }
+      const lint = await lintHiPS(lastHiPSSource)
+      log(`[LINT] ${lastBuildLabel}: ok=${lint.ok}, issues=${lint.issues.length}`)
+      for (const issue of lint.issues) {
+        log(`  - [${issue.level}] ${issue.code}: ${issue.message}`)
+      }
+    }
+
+    $('#btn-zip').addEventListener('click', async () => {
+      try {
+        await runZipDemo()
+      } catch (e) {
+        log(`[ZIP] error: ${e instanceof Error ? e.message : String(e)}`)
+      }
+    })
+
+    $('#btn-opfs').addEventListener('click', async () => {
+      try {
+        await runOPFSDemo()
+      } catch (e) {
+        log(`[OPFS] error: ${e instanceof Error ? e.message : String(e)}`)
+      }
+    })
+
+    $('#btn-lint').addEventListener('click', async () => {
+      try {
+        await runLintLast()
+      } catch (e) {
+        log(`[LINT] error: ${e instanceof Error ? e.message : String(e)}`)
+      }
+    })
+
+    $('#btn-clear').addEventListener('click', () => {
+      logEl.textContent = ''
+      metaEl.innerHTML = ''
+    })
+
+    log('Ready.')
+  </script>
+</body>
+</html>

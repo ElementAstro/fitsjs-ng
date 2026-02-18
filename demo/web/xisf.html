@@ -1,0 +1,1019 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>fitsjs-ng — XISF Web Demo</title>
+  <style>
+    :root {
+      --bg: #f7f5ef;
+      --paper: #fffdf7;
+      --ink: #1f1a17;
+      --muted: #6f665f;
+      --line: #d4cabe;
+      --accent: #0f7a68;
+      --accent-strong: #085f50;
+      --accent-soft: #dff2ed;
+      --warn: #a2582b;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--ink);
+      font-family: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Palatino, serif;
+      background:
+        radial-gradient(1000px 380px at 10% -10%, #efe9dc 0%, transparent 60%),
+        radial-gradient(700px 320px at 90% 0%, #d5ebe5 0%, transparent 58%),
+        linear-gradient(180deg, var(--bg) 0%, #f4f0e7 100%);
+      padding: 24px;
+    }
+
+    .shell {
+      max-width: 1180px;
+      margin: 0 auto;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: var(--paper);
+      box-shadow: 0 28px 70px rgba(44, 32, 20, 0.12);
+      overflow: hidden;
+    }
+
+    header {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 14px;
+      align-items: end;
+      padding: 22px 24px 16px;
+      border-bottom: 1px solid var(--line);
+      background:
+        linear-gradient(115deg, rgba(15,122,104,0.1), rgba(15,122,104,0.03) 45%, transparent 70%),
+        var(--paper);
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 30px;
+      line-height: 1.1;
+      letter-spacing: 0.01em;
+    }
+
+    .subtitle {
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 15px;
+    }
+
+    .nav {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .nav a {
+      text-decoration: none;
+      color: var(--ink);
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 8px 12px;
+      font-size: 13px;
+      background: #fff;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 420px 1fr;
+      min-height: 620px;
+    }
+
+    .left {
+      border-right: 1px solid var(--line);
+      padding: 20px;
+      background: linear-gradient(180deg, #fffdf8 0%, #faf6ec 100%);
+    }
+
+    .right {
+      padding: 20px;
+      background: #fffefb;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .block {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 14px;
+      background: #fff;
+      margin-bottom: 14px;
+    }
+
+    .block h2 {
+      margin: 0 0 10px;
+      font-size: 16px;
+    }
+
+    .row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 10px;
+    }
+
+    button,
+    label.file {
+      border: 1px solid #93b9b1;
+      background: linear-gradient(180deg, #0f8b75, #0d7765);
+      color: #fff;
+      border-radius: 8px;
+      padding: 8px 12px;
+      cursor: pointer;
+      font-size: 13px;
+      font-family: ui-sans-serif, system-ui, sans-serif;
+      font-weight: 600;
+    }
+
+    button.alt,
+    label.file.alt {
+      background: #fff;
+      color: var(--ink);
+      border: 1px solid var(--line);
+      font-weight: 500;
+    }
+
+    button:hover,
+    label.file:hover {
+      filter: brightness(1.03);
+    }
+
+    button:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+
+    label.file input {
+      display: none;
+    }
+
+    .kvs {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      font-family: ui-sans-serif, system-ui, sans-serif;
+      font-size: 12px;
+    }
+
+    .kvs div {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fffdfa;
+      padding: 8px;
+    }
+
+    .kvs span {
+      display: block;
+      color: var(--muted);
+      margin-bottom: 4px;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    pre {
+      margin: 0;
+      min-height: 280px;
+      max-height: 560px;
+      overflow: auto;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 14px;
+      background: #1f2326;
+      color: #d9f0ea;
+      font-size: 12px;
+      line-height: 1.5;
+      font-family: "Cascadia Code", "Fira Code", ui-monospace, monospace;
+    }
+
+    .preview {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #fff;
+      padding: 12px;
+    }
+
+    .preview h2 {
+      margin: 0 0 10px;
+      font-size: 16px;
+    }
+
+    .preview-controls {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .preview-controls label {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      color: var(--muted);
+      font-family: ui-sans-serif, system-ui, sans-serif;
+      font-size: 11px;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+    }
+
+    .preview-controls select {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fffdfa;
+      color: var(--ink);
+      padding: 6px 8px;
+      font-size: 12px;
+      text-transform: none;
+      letter-spacing: 0;
+    }
+
+    #preview-canvas {
+      width: 100%;
+      max-height: 360px;
+      border-radius: 10px;
+      border: 1px solid #d7d0c5;
+      background: #181d20;
+      image-rendering: pixelated;
+      object-fit: contain;
+    }
+
+    #preview-info {
+      margin-top: 8px;
+      color: var(--muted);
+      font-family: ui-sans-serif, system-ui, sans-serif;
+      font-size: 12px;
+      line-height: 1.4;
+    }
+
+    .warning {
+      color: var(--warn);
+      font-family: ui-sans-serif, system-ui, sans-serif;
+      font-size: 12px;
+      margin-top: 8px;
+    }
+
+    @media (max-width: 980px) {
+      .grid {
+        grid-template-columns: 1fr;
+      }
+      .left {
+        border-right: 0;
+        border-bottom: 1px solid var(--line);
+      }
+      .preview-controls {
+        grid-template-columns: 1fr;
+      }
+      pre {
+        min-height: 260px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <header>
+      <div>
+        <h1>XISF Conversion Workshop</h1>
+        <div class="subtitle">
+          Browser demo for <strong>FITS ⇄ XISF</strong>, monolithic/distributed XISF writing, and strict parsing.
+        </div>
+      </div>
+      <div class="nav">
+        <a href="./index.html">FITS Demo</a>
+        <a href="./hips.html">HiPS Demo</a>
+      </div>
+    </header>
+
+    <div class="grid">
+      <aside class="left">
+        <div class="block">
+          <h2>Quick Actions</h2>
+          <div class="row">
+            <button id="btn-sample">Sample FITS → XISF</button>
+            <button id="btn-roundtrip" class="alt">Sample Round-trip</button>
+          </div>
+          <div class="warning">Round-trip keeps metadata through `XISF_META` extension when needed.</div>
+        </div>
+
+        <div class="block">
+          <h2>Load Files</h2>
+          <div class="row">
+            <label class="file">
+              Open FITS
+              <input type="file" id="fits-input" accept=".fits,.fit,.fts" />
+            </label>
+            <label class="file alt">
+              Open XISF
+              <input type="file" id="xisf-input" accept=".xisf,.xish,.xml" />
+            </label>
+          </div>
+          <div class="row">
+            <button id="btn-write-mono" disabled>Write Monolithic</button>
+            <button id="btn-write-dist" disabled class="alt">Write Distributed</button>
+          </div>
+          <div class="row">
+            <label class="file alt">
+              Open .xish
+              <input type="file" id="xish-input" accept=".xish,.xml" />
+            </label>
+            <label class="file alt">
+              Open .xisb
+              <input type="file" id="xisb-input" accept=".xisb" />
+            </label>
+            <button id="btn-load-distributed" class="alt">Load Distributed Pair</button>
+          </div>
+        </div>
+
+        <div class="block">
+          <h2>Result Snapshot</h2>
+          <div class="kvs" id="summary">
+            <div><span>Status</span>Ready</div>
+            <div><span>Input Kind</span>None</div>
+            <div><span>Images</span>-</div>
+            <div><span>SampleFormat</span>-</div>
+            <div><span>Geometry</span>-</div>
+            <div><span>Output Bytes</span>-</div>
+          </div>
+        </div>
+      </aside>
+
+      <section class="right">
+        <div class="preview">
+          <h2>Image Preview</h2>
+          <div class="preview-controls">
+            <label>
+              Image
+              <select id="preview-image" disabled></select>
+            </label>
+            <label>
+              Channel
+              <select id="preview-channel" disabled></select>
+            </label>
+            <label>
+              Slice
+              <select id="preview-slice" disabled></select>
+            </label>
+          </div>
+          <canvas id="preview-canvas" width="480" height="270"></canvas>
+          <div id="preview-info">No image loaded.</div>
+        </div>
+        <pre id="log"></pre>
+      </section>
+    </div>
+  </div>
+
+  <script type="importmap">
+    {
+      "imports": {
+        "@xmldom/xmldom": "https://esm.sh/@xmldom/xmldom@0.8.11",
+        "fflate": "https://esm.sh/fflate@0.8.2",
+        "js-sha3": "https://esm.sh/js-sha3@0.9.3",
+        "fast-png": "https://esm.sh/fast-png@8.0.0",
+        "jpeg-js": "https://esm.sh/jpeg-js@0.4.4",
+        "@hscmap/healpix": "https://esm.sh/@hscmap/healpix@1.4.12",
+        "@fxpineau/moc-wasm": "https://esm.sh/@fxpineau/moc-wasm@0.11.0"
+      }
+    }
+  </script>
+
+  <script type="module">
+    import {
+      FITS,
+      XISF,
+      XISFWriter,
+      convertFitsToXisf,
+      convertXisfToFits,
+      createImageBytesFromArray,
+      createImageHDU,
+      writeFITS,
+    } from '../../dist/index.js'
+
+    const $ = (q) => document.querySelector(q)
+    const logEl = $('#log')
+    const summaryEl = $('#summary')
+    const previewCanvasEl = $('#preview-canvas')
+    const previewInfoEl = $('#preview-info')
+    const previewImageEl = $('#preview-image')
+    const previewChannelEl = $('#preview-channel')
+    const previewSliceEl = $('#preview-slice')
+    const xishInputEl = $('#xish-input')
+    const xisbInputEl = $('#xisb-input')
+
+    let lastFitsBuffer = null
+    let lastXisf = null
+    let lastXisfBuffer = null
+    let lastPreview = null
+    let lastPreviewLabel = 'Loaded XISF'
+
+    function now() {
+      return new Date().toLocaleTimeString()
+    }
+
+    function log(msg) {
+      logEl.textContent += `[${now()}] ${msg}\n`
+      logEl.scrollTop = logEl.scrollHeight
+    }
+
+    function setSummary(entries) {
+      const defaults = {
+        Status: 'Ready',
+        'Input Kind': 'None',
+        Images: '-',
+        SampleFormat: '-',
+        Geometry: '-',
+        'Output Bytes': '-',
+      }
+      for (const [k, v] of Object.entries(entries)) defaults[k] = v
+      summaryEl.innerHTML = Object.entries(defaults)
+        .map(([k, v]) => `<div><span>${k}</span>${String(v)}</div>`)
+        .join('')
+    }
+
+    function clampInt(value, min, max) {
+      if (!Number.isInteger(value)) return min
+      if (value < min) return min
+      if (value > max) return max
+      return value
+    }
+
+    function setSelectOptions(selectEl, options, selectedValue) {
+      selectEl.innerHTML = options
+        .map((option) => `<option value="${option.value}">${option.label}</option>`)
+        .join('')
+      if (options.length === 0) {
+        selectEl.disabled = true
+        return
+      }
+      const hasSelected = options.some((option) => option.value === selectedValue)
+      selectEl.value = hasSelected ? selectedValue : options[0].value
+      selectEl.disabled = false
+    }
+
+    function populatePreviewImageOptions(parsed, preferredIndex = 0) {
+      const options = parsed.unit.images.map((image, index) => ({
+        value: String(index),
+        label: `#${index} · ${image.sampleFormat} · ${[...image.geometry, image.channelCount].join('x')}`,
+      }))
+      if (options.length === 0) {
+        setSelectOptions(previewImageEl, [{ value: '0', label: 'No image' }], '0')
+        previewImageEl.disabled = true
+        return
+      }
+      const clamped = clampInt(preferredIndex, 0, options.length - 1)
+      setSelectOptions(previewImageEl, options, String(clamped))
+    }
+
+    function populatePreviewChannelOptions(image, preferredChannel) {
+      const options = []
+      if (image.colorSpace === 'RGB' && image.channelCount >= 3) {
+        options.push({ value: 'rgb', label: 'RGB Composite' })
+      }
+      for (let i = 0; i < image.channelCount; i++) {
+        options.push({ value: `ch:${i}`, label: `Channel ${i}` })
+      }
+      const fallback = options[0]?.value ?? 'ch:0'
+      setSelectOptions(previewChannelEl, options, preferredChannel ?? fallback)
+      previewChannelEl.disabled = options.length <= 1
+    }
+
+    function populatePreviewSliceOptions(image, preferredSlice) {
+      const { slices } = getImageDimensions(image)
+      const options = []
+      for (let i = 0; i < slices; i++) {
+        options.push({ value: String(i), label: `Slice ${i}` })
+      }
+      const selected = String(clampInt(preferredSlice, 0, Math.max(0, slices - 1)))
+      setSelectOptions(previewSliceEl, options, selected)
+      previewSliceEl.disabled = slices <= 1
+    }
+
+    function selectedPreviewImageIndex() {
+      return clampInt(Number.parseInt(previewImageEl.value, 10), 0, Math.max(0, (lastXisf?.unit.images.length ?? 1) - 1))
+    }
+
+    function selectedPreviewSliceIndex(image) {
+      const { slices } = getImageDimensions(image)
+      return clampInt(Number.parseInt(previewSliceEl.value, 10), 0, Math.max(0, slices - 1))
+    }
+
+    function selectedPreviewChannelMode(image) {
+      const value = previewChannelEl.value
+      if (value === 'rgb' && image.colorSpace === 'RGB' && image.channelCount >= 3) return value
+      if (/^ch:\d+$/u.test(value)) {
+        const idx = Number.parseInt(value.slice(3), 10)
+        if (idx >= 0 && idx < image.channelCount) return value
+      }
+      return image.colorSpace === 'RGB' && image.channelCount >= 3 ? 'rgb' : 'ch:0'
+    }
+
+    function syncPreviewControls(parsed, preferredImageIndex, preferredChannelMode, preferredSliceIndex) {
+      populatePreviewImageOptions(parsed, preferredImageIndex)
+      const imageIndex = selectedPreviewImageIndex()
+      const image = parsed.getImage(imageIndex)
+      if (!image) {
+        setSelectOptions(previewChannelEl, [{ value: 'ch:0', label: 'N/A' }], 'ch:0')
+        setSelectOptions(previewSliceEl, [{ value: '0', label: 'N/A' }], '0')
+        previewChannelEl.disabled = true
+        previewSliceEl.disabled = true
+        return
+      }
+      populatePreviewChannelOptions(image, preferredChannelMode)
+      populatePreviewSliceOptions(image, preferredSliceIndex)
+      previewChannelEl.value = selectedPreviewChannelMode(image)
+      previewSliceEl.value = String(selectedPreviewSliceIndex(image))
+    }
+
+    function product(values) {
+      return values.reduce((a, b) => a * b, 1)
+    }
+
+    function getImageDimensions(image) {
+      const width = image.geometry[0] ?? 1
+      const height = image.geometry[1] ?? 1
+      const slices = image.geometry.length > 2 ? product(image.geometry.slice(2)) : 1
+      return { width, height, slices }
+    }
+
+    function sampleByteSize(sampleFormat) {
+      switch (sampleFormat) {
+        case 'UInt8':
+          return 1
+        case 'UInt16':
+          return 2
+        case 'UInt32':
+        case 'Float32':
+          return 4
+        case 'UInt64':
+        case 'Float64':
+          return 8
+        case 'Complex32':
+          return 8
+        case 'Complex64':
+          return 16
+        default:
+          return 1
+      }
+    }
+
+    function readSampleValue(view, offset, sampleFormat, littleEndian) {
+      switch (sampleFormat) {
+        case 'UInt8':
+          return view.getUint8(offset)
+        case 'UInt16':
+          return view.getUint16(offset, littleEndian)
+        case 'UInt32':
+          return view.getUint32(offset, littleEndian)
+        case 'UInt64':
+          return Number(view.getBigUint64(offset, littleEndian))
+        case 'Float32':
+          return view.getFloat32(offset, littleEndian)
+        case 'Float64':
+          return view.getFloat64(offset, littleEndian)
+        case 'Complex32': {
+          const real = view.getFloat32(offset, littleEndian)
+          const imag = view.getFloat32(offset + 4, littleEndian)
+          return Math.hypot(real, imag)
+        }
+        case 'Complex64': {
+          const real = view.getFloat64(offset, littleEndian)
+          const imag = view.getFloat64(offset + 8, littleEndian)
+          return Math.hypot(real, imag)
+        }
+        default:
+          return 0
+      }
+    }
+
+    function extractXisfChannel(image, channelIndex = 0, sliceIndex = 0) {
+      if (!image?.data) return null
+
+      const { width, height, slices } = getImageDimensions(image)
+      if (channelIndex < 0 || channelIndex >= image.channelCount) return null
+      if (sliceIndex < 0 || sliceIndex >= slices) return null
+
+      const pixelCount = width * height
+      const totalPixelsAcrossSlices = pixelCount * slices
+      const bytesPerSample = sampleByteSize(image.sampleFormat)
+      const littleEndian = image.dataBlock.byteOrder !== 'big'
+      const view = new DataView(image.data.buffer, image.data.byteOffset, image.data.byteLength)
+      const values = new Float64Array(pixelCount)
+
+      for (let i = 0; i < pixelCount; i++) {
+        const flatPixel = sliceIndex * pixelCount + i
+        const sampleIndex = image.pixelStorage === 'Normal'
+          ? flatPixel * image.channelCount + channelIndex
+          : channelIndex * totalPixelsAcrossSlices + flatPixel
+        const offset = sampleIndex * bytesPerSample
+        values[i] = readSampleValue(view, offset, image.sampleFormat, littleEndian)
+      }
+
+      return { width, height, values, sliceIndex, channelIndex }
+    }
+
+    function finiteRange(values) {
+      let min = Infinity
+      let max = -Infinity
+      for (let i = 0; i < values.length; i++) {
+        const v = values[i]
+        if (!Number.isFinite(v)) continue
+        if (v < min) min = v
+        if (v > max) max = v
+      }
+      if (!Number.isFinite(min) || !Number.isFinite(max)) return { min: 0, max: 1 }
+      if (min === max) return { min, max: min + 1 }
+      return { min, max }
+    }
+
+    function normalizeToByte(value, min, max) {
+      if (!Number.isFinite(value)) return 0
+      const t = (value - min) / (max - min)
+      const clamped = t < 0 ? 0 : t > 1 ? 1 : t
+      return Math.round(clamped * 255)
+    }
+
+    function drawCanvasImage(width, height, fillPixel) {
+      const ctx = previewCanvasEl.getContext('2d')
+      previewCanvasEl.width = width
+      previewCanvasEl.height = height
+      const imageData = ctx.createImageData(width, height)
+      const out = imageData.data
+      for (let i = 0; i < width * height; i++) {
+        const offset = i * 4
+        fillPixel(out, offset, i)
+      }
+      ctx.putImageData(imageData, 0, 0)
+    }
+
+    function resetPreview(message = 'No image loaded.') {
+      const ctx = previewCanvasEl.getContext('2d')
+      previewCanvasEl.width = 480
+      previewCanvasEl.height = 270
+      ctx.fillStyle = '#181d20'
+      ctx.fillRect(0, 0, previewCanvasEl.width, previewCanvasEl.height)
+      ctx.fillStyle = '#aeb8be'
+      ctx.font = '14px ui-sans-serif, system-ui, sans-serif'
+      ctx.textAlign = 'center'
+      ctx.fillText('XISF preview will appear here', previewCanvasEl.width / 2, previewCanvasEl.height / 2 - 8)
+      ctx.font = '12px ui-sans-serif, system-ui, sans-serif'
+      ctx.fillText('Load or generate XISF to render first image', previewCanvasEl.width / 2, previewCanvasEl.height / 2 + 14)
+      previewInfoEl.textContent = message
+      lastPreview = null
+      if (!lastXisf || lastXisf.unit.images.length === 0) {
+        setSelectOptions(previewImageEl, [{ value: '0', label: 'No image' }], '0')
+        setSelectOptions(previewChannelEl, [{ value: 'ch:0', label: 'N/A' }], 'ch:0')
+        setSelectOptions(previewSliceEl, [{ value: '0', label: 'N/A' }], '0')
+        previewImageEl.disabled = true
+        previewChannelEl.disabled = true
+        previewSliceEl.disabled = true
+      }
+    }
+
+    function renderXisfImagePreview(parsed, label, imageIndex, channelMode, sliceIndex) {
+      const image = parsed.getImage(imageIndex)
+      if (!image) {
+        resetPreview('No image available in this XISF.')
+        return
+      }
+      if (!image.data) {
+        resetPreview('Image data is not decoded.')
+        return
+      }
+
+      const { width, height, slices } = getImageDimensions(image)
+      const selectedSlice = clampInt(sliceIndex, 0, Math.max(0, slices - 1))
+      const selectedMode = channelMode ?? 'ch:0'
+
+      if (selectedMode === 'rgb' && image.colorSpace === 'RGB' && image.channelCount >= 3) {
+        const red = extractXisfChannel(image, 0, selectedSlice)
+        const green = extractXisfChannel(image, 1, selectedSlice)
+        const blue = extractXisfChannel(image, 2, selectedSlice)
+        if (!red || !green || !blue) {
+          resetPreview('Failed to decode RGB channels.')
+          return
+        }
+        const rr = finiteRange(red.values)
+        const gr = finiteRange(green.values)
+        const br = finiteRange(blue.values)
+        drawCanvasImage(width, height, (out, offset, index) => {
+          out[offset] = normalizeToByte(red.values[index], rr.min, rr.max)
+          out[offset + 1] = normalizeToByte(green.values[index], gr.min, gr.max)
+          out[offset + 2] = normalizeToByte(blue.values[index], br.min, br.max)
+          out[offset + 3] = 255
+        })
+        const baseInfo = `${label} · image #${imageIndex} · RGB · ${width}×${height} · sample=${image.sampleFormat} · slice=${selectedSlice}/${Math.max(0, slices - 1)}`
+        previewInfoEl.textContent = baseInfo
+        lastPreview = {
+          width,
+          height,
+          mode: 'rgb',
+          red: red.values,
+          green: green.values,
+          blue: blue.values,
+          baseInfo,
+        }
+        return
+      }
+
+      const channelIndex = clampInt(Number.parseInt(String(selectedMode).replace('ch:', ''), 10), 0, image.channelCount - 1)
+      const mono = extractXisfChannel(image, channelIndex, selectedSlice)
+      if (!mono) {
+        resetPreview('Failed to decode image channel.')
+        return
+      }
+
+      const range = finiteRange(mono.values)
+      drawCanvasImage(width, height, (out, offset, index) => {
+        const gray = normalizeToByte(mono.values[index], range.min, range.max)
+        out[offset] = gray
+        out[offset + 1] = gray
+        out[offset + 2] = gray
+        out[offset + 3] = 255
+      })
+
+      const baseInfo = `${label} · image #${imageIndex} · ${width}×${height} · sample=${image.sampleFormat} · channel=${channelIndex}/${Math.max(0, image.channelCount - 1)} · slice=${selectedSlice}/${Math.max(0, slices - 1)} · min=${range.min.toFixed(3)} max=${range.max.toFixed(3)}`
+      previewInfoEl.textContent = baseInfo
+      lastPreview = {
+        width,
+        height,
+        mode: 'gray',
+        values: mono.values,
+        baseInfo,
+      }
+    }
+
+    function renderPreviewFromControls(label) {
+      if (!lastXisf) {
+        resetPreview('No image loaded.')
+        return
+      }
+      const imageIndex = selectedPreviewImageIndex()
+      const image = lastXisf.getImage(imageIndex)
+      if (!image) {
+        resetPreview('No image available in this XISF.')
+        return
+      }
+      const channelMode = selectedPreviewChannelMode(image)
+      const sliceIndex = selectedPreviewSliceIndex(image)
+      renderXisfImagePreview(lastXisf, label, imageIndex, channelMode, sliceIndex)
+    }
+
+    function makeSampleFits(width = 72, height = 48) {
+      const values = new Float32Array(width * height)
+      for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+          const i = y * width + x
+          values[i] = Math.sin(x * 0.17) * Math.cos(y * 0.12) * 180 + 600 + x * 0.5
+        }
+      }
+      const hdu = createImageHDU({
+        primary: true,
+        width,
+        height,
+        bitpix: -32,
+        data: createImageBytesFromArray(values, -32),
+        additionalCards: [
+          { key: 'OBJECT', value: 'web-xisf-demo' },
+          { key: 'CTYPE1', value: 'RA---TAN' },
+          { key: 'CTYPE2', value: 'DEC--TAN' },
+          { key: 'CRVAL1', value: 180 },
+          { key: 'CRVAL2', value: 0 },
+          { key: 'CRPIX1', value: width / 2 + 0.5 },
+          { key: 'CRPIX2', value: height / 2 + 0.5 },
+          { key: 'CDELT1', value: -0.02 },
+          { key: 'CDELT2', value: 0.02 },
+        ],
+      })
+      return writeFITS([hdu])
+    }
+
+    function download(bytes, name) {
+      const blob = bytes instanceof Blob ? bytes : new Blob([bytes], { type: 'application/octet-stream' })
+      const href = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = href
+      a.download = name
+      a.click()
+      URL.revokeObjectURL(href)
+    }
+
+    async function summarizeParsedXisf(parsed, label, outputBytes) {
+      const preferredImageIndex = Number.parseInt(previewImageEl.value, 10)
+      const preferredChannelMode = previewChannelEl.value
+      const preferredSliceIndex = Number.parseInt(previewSliceEl.value, 10)
+      lastXisf = parsed
+      lastPreviewLabel = label
+
+      syncPreviewControls(parsed, preferredImageIndex, preferredChannelMode, preferredSliceIndex)
+      const image = parsed.getImage(selectedPreviewImageIndex())
+      const geometry = image ? [...image.geometry, image.channelCount].join('x') : '-'
+      setSummary({
+        Status: 'Loaded',
+        'Input Kind': label,
+        Images: parsed.unit.images.length,
+        SampleFormat: image?.sampleFormat ?? '-',
+        Geometry: geometry,
+        'Output Bytes': outputBytes,
+      })
+      renderPreviewFromControls(label)
+      log(`Parsed XISF (${label}): images=${parsed.unit.images.length}, metadata=${parsed.unit.metadata.length}`)
+      return parsed
+    }
+
+    async function parseAndSummarizeXisf(buffer, label) {
+      const parsed = await XISF.fromArrayBuffer(buffer)
+      return summarizeParsedXisf(parsed, label, buffer.byteLength)
+    }
+
+    async function loadDistributedXisf(headerBuffer, blocksBuffer, label) {
+      const parsed = await XISF.fromArrayBuffer(headerBuffer, {
+        headerDir: '/demo/web',
+        resourceResolver: {
+          resolveURL: async (url) => {
+            throw new Error(`Unexpected URL resolver request: ${url}`)
+          },
+          resolvePath: async (path) => {
+            const normalized = String(path).replaceAll('\\', '/').toLowerCase()
+            if (normalized.endsWith('/blocks.xisb') || normalized.endsWith('blocks.xisb')) {
+              return new Uint8Array(blocksBuffer)
+            }
+            throw new Error(`Unexpected distributed path: ${path}`)
+          },
+        },
+      })
+      return summarizeParsedXisf(parsed, label, headerBuffer.byteLength + blocksBuffer.byteLength)
+    }
+
+    async function handleFitsBuffer(buffer, sourceLabel) {
+      lastFitsBuffer = buffer
+      setSummary({ Status: 'Converting', 'Input Kind': sourceLabel })
+      log(`Loaded FITS (${sourceLabel}), bytes=${buffer.byteLength}`)
+
+      const monolithic = await convertFitsToXisf(buffer)
+      lastXisfBuffer = monolithic
+      await parseAndSummarizeXisf(monolithic, 'FITS->XISF')
+      $('#btn-write-mono').disabled = false
+      $('#btn-write-dist').disabled = false
+      log(`Converted FITS -> XISF monolithic, bytes=${monolithic.byteLength}`)
+    }
+
+    async function runSampleFlow() {
+      const sample = makeSampleFits()
+      await handleFitsBuffer(sample, 'sample')
+    }
+
+    async function runRoundTrip() {
+      const sample = makeSampleFits()
+      const xisf = await convertFitsToXisf(sample)
+      const fitsBack = await convertXisfToFits(xisf)
+      const parsedFits = FITS.fromArrayBuffer(fitsBack)
+      const naxis1 = parsedFits.getHeader()?.getNumber('NAXIS1')
+      const naxis2 = parsedFits.getHeader()?.getNumber('NAXIS2')
+      log(`Round-trip complete: FITS bytes=${fitsBack.byteLength}, NAXIS1=${naxis1}, NAXIS2=${naxis2}`)
+      setSummary({
+        Status: 'Round-trip OK',
+        'Input Kind': 'sample',
+        'Output Bytes': fitsBack.byteLength,
+      })
+      download(fitsBack, 'roundtrip.fits')
+    }
+
+    async function writeMonolithic() {
+      if (!lastXisf) return
+      const output = await XISFWriter.toMonolithic(lastXisf.unit, { compression: 'zlib' })
+      log(`XISFWriter.toMonolithic => ${output.byteLength} bytes`)
+      setSummary({ Status: 'Wrote monolithic', 'Output Bytes': output.byteLength })
+      download(output, 'demo-output.xisf')
+    }
+
+    async function writeDistributed() {
+      if (!lastXisf) return
+      const distributed = await XISFWriter.toDistributed(lastXisf.unit, { compression: 'zlib' })
+      log(`XISFWriter.toDistributed => header=${distributed.header.byteLength}, blocks.xisb=${distributed.blocks['blocks.xisb'].byteLength}`)
+      setSummary({
+        Status: 'Wrote distributed',
+        'Output Bytes': `${distributed.header.byteLength} + ${distributed.blocks['blocks.xisb'].byteLength}`,
+      })
+      download(distributed.header, 'demo-output.xish')
+      download(distributed.blocks['blocks.xisb'], 'blocks.xisb')
+    }
+
+    $('#btn-sample').addEventListener('click', () => {
+      runSampleFlow().catch((error) => log(`Error: ${error instanceof Error ? error.message : String(error)}`))
+    })
+
+    $('#btn-roundtrip').addEventListener('click', () => {
+      runRoundTrip().catch((error) => log(`Error: ${error instanceof Error ? error.message : String(error)}`))
+    })
+
+    $('#fits-input').addEventListener('change', async (event) => {
+      const file = event.target.files?.[0]
+      if (!file) return
+      const buffer = await file.arrayBuffer()
+      handleFitsBuffer(buffer, file.name).catch((error) => log(`Error: ${error instanceof Error ? error.message : String(error)}`))
+    })
+
+    $('#xisf-input').addEventListener('change', async (event) => {
+      const file = event.target.files?.[0]
+      if (!file) return
+      const buffer = await file.arrayBuffer()
+      lastXisfBuffer = buffer
+      parseAndSummarizeXisf(buffer, file.name)
+        .then(async (parsed) => {
+          const fits = await convertXisfToFits(parsed)
+          log(`Converted XISF -> FITS, bytes=${fits.byteLength}`)
+          $('#btn-write-mono').disabled = false
+          $('#btn-write-dist').disabled = false
+        })
+        .catch((error) => log(`Error: ${error instanceof Error ? error.message : String(error)}`))
+    })
+
+    $('#btn-load-distributed').addEventListener('click', async () => {
+      const headerFile = xishInputEl.files?.[0]
+      const blocksFile = xisbInputEl.files?.[0]
+      if (!headerFile || !blocksFile) {
+        log('Error: please select both .xish and .xisb files.')
+        return
+      }
+
+      try {
+        const headerBuffer = await headerFile.arrayBuffer()
+        const blocksBuffer = await blocksFile.arrayBuffer()
+        lastXisfBuffer = headerBuffer
+        const label = `${headerFile.name} + ${blocksFile.name}`
+        const parsed = await loadDistributedXisf(headerBuffer, blocksBuffer, label)
+        const fits = await convertXisfToFits(parsed)
+        log(`Distributed XISF -> FITS, bytes=${fits.byteLength}`)
+        $('#btn-write-mono').disabled = false
+        $('#btn-write-dist').disabled = false
+      } catch (error) {
+        log(`Error: ${error instanceof Error ? error.message : String(error)}`)
+      }
+    })
+
+    $('#btn-write-mono').addEventListener('click', () => {
+      writeMonolithic().catch((error) => log(`Error: ${error instanceof Error ? error.message : String(error)}`))
+    })
+
+    $('#btn-write-dist').addEventListener('click', () => {
+      writeDistributed().catch((error) => log(`Error: ${error instanceof Error ? error.message : String(error)}`))
+    })
+
+    previewImageEl.addEventListener('change', () => {
+      if (!lastXisf) return
+      const image = lastXisf.getImage(selectedPreviewImageIndex())
+      if (!image) return
+      populatePreviewChannelOptions(image, null)
+      populatePreviewSliceOptions(image, 0)
+      renderPreviewFromControls(lastPreviewLabel)
+    })
+
+    previewChannelEl.addEventListener('change', () => {
+      if (!lastXisf) return
+      renderPreviewFromControls(lastPreviewLabel)
+    })
+
+    previewSliceEl.addEventListener('change', () => {
+      if (!lastXisf) return
+      renderPreviewFromControls(lastPreviewLabel)
+    })
+
+    previewCanvasEl.addEventListener('mousemove', (event) => {
+      if (!lastPreview) return
+      const rect = previewCanvasEl.getBoundingClientRect()
+      const x = Math.floor((event.clientX - rect.left) * (lastPreview.width / rect.width))
+      const y = Math.floor((event.clientY - rect.top) * (lastPreview.height / rect.height))
+      if (x < 0 || y < 0 || x >= lastPreview.width || y >= lastPreview.height) return
+      const idx = y * lastPreview.width + x
+      if (lastPreview.mode === 'gray') {
+        const value = lastPreview.values[idx]
+        previewInfoEl.textContent = `Pixel (${x}, ${y}) = ${Number.isFinite(value) ? value.toFixed(5) : 'NaN'}`
+      } else {
+        const r = lastPreview.red[idx]
+        const g = lastPreview.green[idx]
+        const b = lastPreview.blue[idx]
+        previewInfoEl.textContent = `Pixel (${x}, ${y}) · R=${r.toFixed(5)} G=${g.toFixed(5)} B=${b.toFixed(5)}`
+      }
+    })
+
+    previewCanvasEl.addEventListener('mouseleave', () => {
+      previewInfoEl.textContent = lastPreview?.baseInfo ?? 'No image loaded.'
+    })
+
+    resetPreview('No image loaded.')
+    log('Ready.')
+    log('Tip: click "Sample FITS → XISF" for a full in-browser conversion flow.')
+  </script>
+</body>
+</html>

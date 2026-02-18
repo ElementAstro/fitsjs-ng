@@ -1,7 +1,7 @@
 {
   "name": "fitsjs-ng",
   "version": "1.0.0",
-  "description": "Modern TypeScript library for reading FITS astronomical files",
+  "description": "Modern TypeScript library for reading and writing FITS/XISF astronomical files",
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
@@ -42,8 +42,8 @@
     "prepack": "pnpm run clean && pnpm run build",
     "publint": "publint",
     "pack:check": "pnpm pack && node -e \"require('fs').unlinkSync(require('./package.json').name+'-'+require('./package.json').version+'.tgz')\"",
-    "size": "size-limit",
-    "size:analyze": "size-limit --why",
+    "size": "size-limit --config .size-limit.mjs",
+    "size:analyze": "size-limit --config .size-limit.mjs --why",
     "release:patch": "pnpm version patch && git push --follow-tags",
     "release:minor": "pnpm version minor && git push --follow-tags",
     "release:major": "pnpm version major && git push --follow-tags",
@@ -51,6 +51,8 @@
     "publish:npm": "pnpm publish --no-git-checks --access public",
     "publish:gpr": "pnpm publish --no-git-checks --registry https://npm.pkg.github.com",
     "demo": "tsx demo/index.ts",
+    "demo:hips": "tsx demo/hips-node.ts",
+    "demo:xisf": "tsx demo/xisf-node.ts",
     "demo:web": "pnpm run build && pnpm dlx serve ."
   },
   "keywords": [
@@ -80,25 +82,25 @@
     "node": ">=18"
   },
   "packageManager": "pnpm@9.15.4",
-  "size-limit": [
-    {
-      "path": "dist/index.js",
-      "limit": "25 kB"
-    },
-    {
-      "path": "dist/index.cjs",
-      "limit": "25 kB"
-    }
-  ],
+  "dependencies": {
+    "@fxpineau/moc-wasm": "^0.11.0",
+    "@hscmap/healpix": "^1.4.12",
+    "@xmldom/xmldom": "^0.8.11",
+    "fast-png": "^8.0.0",
+    "fflate": "^0.8.2",
+    "jpeg-js": "^0.4.4",
+    "js-sha3": "^0.9.3"
+  },
   "devDependencies": {
     "@commitlint/cli": "^20.4.1",
     "@commitlint/config-conventional": "^20.4.1",
     "@eslint/js": "^9.0.0",
+    "@size-limit/preset-small-lib": "^11.2.0",
+    "@types/node": "^25.2.3",
     "@vitest/coverage-v8": "^4.0.18",
     "eslint": "^9.0.0",
     "husky": "^9.1.7",
     "lint-staged": "^16.2.7",
-    "@size-limit/preset-small-lib": "^11.2.0",
     "prettier": "^3.8.1",
     "publint": "^0.3.12",
     "size-limit": "^11.2.0",

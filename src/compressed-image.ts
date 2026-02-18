@@ -237,11 +237,12 @@ export class CompressedImage extends BinaryTable {
 
   /** Compute min/max pixel values, ignoring NaN. */
   getExtent(arr: Float32Array): [number, number] {
-    return getExtent(arr)
+    const [min, max] = getExtent(arr)
+    return [Number(min), Number(max)]
   }
 
   /** Get a single pixel value at (x, y). */
   getPixel(arr: Float32Array, x: number, y: number): number {
-    return getPixel(arr, x, y, this.width)
+    return Number(getPixel(arr, x, y, this.width))
   }
 }

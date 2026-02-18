@@ -75,4 +75,30 @@ describe('Rice Decompression', () => {
       riceDecompress(arr, blocksize, bytepix, pixels, nx)
     }).not.toThrow()
   })
+
+  it('should throw for unsupported bytepix setup', () => {
+    const pixels = new Int32Array(1)
+    expect(() => riceDecompress(Uint8Array.from([0]), 1, 3, pixels, 1)).toThrow(
+      'Unsupported bytepix value',
+    )
+  })
+
+  it('should execute uncompressed and normal compressed block branches with custom setup', () => {
+    const customSetup = {
+      99: () => [5, 30, 0, 1] as [number, number, number, number],
+      98: () => [1, 10, 0, 1] as [number, number, number, number],
+    }
+
+    const uncompressedArray = Uint8Array.from([0, 0b11111000, 0, 0, 0, 0, 0])
+    const uncompressedOut = new Int32Array(1)
+    expect(() =>
+      riceDecompress(uncompressedArray, 1, 99, uncompressedOut, 1, customSetup as never),
+    ).not.toThrow()
+
+    const normalArray = Uint8Array.from([0, 0b10000000, 0xff, 0])
+    const normalOut = new Int32Array(1)
+    expect(() =>
+      riceDecompress(normalArray, 1, 98, normalOut, 1, customSetup as never),
+    ).not.toThrow()
+  })
 })

@@ -209,16 +209,10 @@ export abstract class Tabular extends DataUnit {
     }
 
     // Read column from blob in chunks
-    const descriptor = this.descriptors[colIndex]
     const accessor = this.accessors[colIndex]!
     const elementByteOffset = this.elementByteLengths.slice(0, colIndex).reduce((a, b) => a + b, 0)
 
-    const TypedArrayCtor =
-      descriptor && this.typedArray[descriptor] ? this.typedArray[descriptor]! : null
-
-    const column: unknown[] = TypedArrayCtor
-      ? Array.from(new TypedArrayCtor(this.rows))
-      : new Array(this.rows)
+    const column: unknown[] = new Array(this.rows)
 
     const rowsPerIteration = Math.min(
       Math.max(1, Math.floor(this.maxMemory / this.rowByteSize)),

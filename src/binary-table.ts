@@ -25,7 +25,7 @@ const DATA_ACCESSORS: Record<string, (view: DataView, offset: number) => [unknow
   },
   K(view, offset) {
     const val = view.getBigInt64(offset, false)
-    return [Number(val), offset + 8]
+    return [val, offset + 8]
   },
   A(view, offset) {
     const val = String.fromCharCode(view.getUint8(offset))
@@ -121,7 +121,10 @@ export class BinaryTable extends Tabular {
     const swapFn = swapEndian[descriptor]
     if (swapFn && descriptor !== 'B') {
       for (let j = 0; j < arr.length; j++) {
-        ;(arr as Int32Array)[j] = swapFn(arr[j]!) as number
+        const value = arr[j]
+        if (typeof value === 'number') {
+          ;(arr as Float64Array)[j] = swapFn(value)
+        }
       }
     }
 

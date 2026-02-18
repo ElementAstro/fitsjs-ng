@@ -5,270 +5,359 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>fitsjs-ng — Web Demo</title>
   <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
     :root {
-      --bg: #0f1117;
-      --surface: #1a1d27;
-      --border: #2a2d3a;
-      --text: #e4e6ed;
-      --text-dim: #8b8fa3;
-      --accent: #6c8cff;
-      --accent-hover: #8aa4ff;
-      --success: #4ade80;
-      --warning: #fbbf24;
+      --bg: #f7f5ef;
+      --paper: #fffdf7;
+      --ink: #1f1a17;
+      --muted: #6f665f;
+      --line: #d4cabe;
+      --accent: #0f7a68;
+      --warn: #a2582b;
     }
 
+    * { box-sizing: border-box; }
+
     body {
-      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-      background: var(--bg);
-      color: var(--text);
-      line-height: 1.6;
+      margin: 0;
       min-height: 100vh;
+      color: var(--ink);
+      font-family: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Palatino, serif;
+      background:
+        radial-gradient(1000px 380px at 10% -10%, #efe9dc 0%, transparent 60%),
+        radial-gradient(700px 320px at 90% 0%, #d5ebe5 0%, transparent 58%),
+        linear-gradient(180deg, var(--bg) 0%, #f4f0e7 100%);
+      padding: 24px;
+    }
+
+    .shell {
+      max-width: 1240px;
+      margin: 0 auto;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: var(--paper);
+      box-shadow: 0 28px 70px rgba(44, 32, 20, 0.12);
+      overflow: hidden;
     }
 
     header {
-      background: var(--surface);
-      border-bottom: 1px solid var(--border);
-      padding: 1rem 2rem;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 14px;
+      align-items: end;
+      padding: 22px 24px 16px;
+      border-bottom: 1px solid var(--line);
+      background:
+        linear-gradient(115deg, rgba(15,122,104,0.1), rgba(15,122,104,0.03) 45%, transparent 70%),
+        var(--paper);
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 30px;
+      line-height: 1.1;
+      letter-spacing: 0.01em;
+    }
+
+    .subtitle {
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 15px;
+    }
+
+    .nav {
       display: flex;
-      align-items: center;
-      gap: 1.5rem;
+      gap: 10px;
       flex-wrap: wrap;
+      justify-content: flex-end;
     }
 
-    header h1 {
-      font-size: 1.25rem;
-      font-weight: 600;
-      color: var(--accent);
-      white-space: nowrap;
-    }
-
-    header h1 span { color: var(--text-dim); font-weight: 400; }
-
-    .controls {
-      display: flex;
-      gap: 0.75rem;
-      align-items: center;
-      flex-wrap: wrap;
-    }
-
-    button, label.file-btn {
-      background: var(--accent);
-      color: #fff;
-      border: none;
-      padding: 0.5rem 1rem;
-      border-radius: 6px;
-      cursor: pointer;
-      font-size: 0.875rem;
-      font-weight: 500;
-      transition: background 0.15s;
-    }
-
-    button:hover, label.file-btn:hover { background: var(--accent-hover); }
-    button:disabled { opacity: 0.5; cursor: not-allowed; }
-
-    label.file-btn { display: inline-block; }
-    label.file-btn input { display: none; }
-
-    select {
-      background: var(--surface);
-      color: var(--text);
-      border: 1px solid var(--border);
-      padding: 0.5rem 0.75rem;
-      border-radius: 6px;
-      font-size: 0.875rem;
-    }
-
-    .status {
-      margin-left: auto;
-      font-size: 0.8rem;
-      color: var(--text-dim);
+    .nav a {
+      text-decoration: none;
+      color: var(--ink);
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 8px 12px;
+      font-size: 13px;
+      background: #fff;
     }
 
     main {
       display: grid;
-      grid-template-columns: 1fr 1fr;
-      grid-template-rows: auto 1fr;
-      gap: 1rem;
-      padding: 1rem 2rem;
-      max-width: 1400px;
-      margin: 0 auto;
+      grid-template-columns: 440px 1fr;
+      min-height: 640px;
     }
 
-    .panel {
-      background: var(--surface);
-      border: 1px solid var(--border);
+    .left {
+      border-right: 1px solid var(--line);
+      padding: 20px;
+      background: linear-gradient(180deg, #fffdf8 0%, #faf6ec 100%);
+    }
+
+    .right {
+      padding: 20px;
+      background: #fffefb;
+    }
+
+    .block {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 14px;
+      background: #fff;
+      margin-bottom: 14px;
+    }
+
+    .block h2 {
+      margin: 0 0 10px;
+      font-size: 16px;
+    }
+
+    .row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 10px;
+    }
+
+    button,
+    label.file-btn {
+      border: 1px solid #93b9b1;
+      background: linear-gradient(180deg, #0f8b75, #0d7765);
+      color: #fff;
       border-radius: 8px;
-      overflow: hidden;
-    }
-
-    .panel-title {
-      padding: 0.6rem 1rem;
-      font-size: 0.8rem;
+      padding: 8px 12px;
+      cursor: pointer;
+      font-size: 13px;
+      font-family: ui-sans-serif, system-ui, sans-serif;
       font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      color: var(--text-dim);
-      border-bottom: 1px solid var(--border);
-      background: rgba(255,255,255,0.02);
     }
 
-    .panel-body {
-      padding: 1rem;
-      overflow: auto;
-      max-height: 420px;
+    button.alt,
+    label.file-btn.alt {
+      background: #fff;
+      color: var(--ink);
+      border: 1px solid var(--line);
+      font-weight: 500;
     }
 
-    /* Info panel */
-    #info-panel { grid-column: 1 / 2; grid-row: 1; }
-    #info-panel .panel-body { max-height: 200px; }
+    button:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+
+    label.file-btn input {
+      display: none;
+    }
+
+    select {
+      border: 1px solid var(--line);
+      background: #fff;
+      border-radius: 8px;
+      padding: 8px 10px;
+      color: var(--ink);
+      min-width: 180px;
+      font-size: 13px;
+      font-family: ui-sans-serif, system-ui, sans-serif;
+    }
+
+    .status {
+      color: var(--muted);
+      font-family: ui-sans-serif, system-ui, sans-serif;
+      font-size: 12px;
+    }
 
     .info-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-      gap: 0.5rem;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
     }
 
     .info-item {
-      background: rgba(108, 140, 255, 0.06);
-      border-radius: 6px;
-      padding: 0.5rem 0.75rem;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fffdfa;
+      padding: 8px;
     }
 
-    .info-label { font-size: 0.7rem; color: var(--text-dim); text-transform: uppercase; }
-    .info-value { font-size: 1rem; font-weight: 600; font-variant-numeric: tabular-nums; }
-
-    /* Canvas panel */
-    #canvas-panel { grid-column: 2 / 3; grid-row: 1 / 3; }
-    #canvas-panel .panel-body {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 0.75rem;
-      max-height: none;
+    .info-label {
+      display: block;
+      color: var(--muted);
+      margin-bottom: 4px;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      font-family: ui-sans-serif, system-ui, sans-serif;
     }
 
-    canvas {
-      background: #000;
-      border-radius: 4px;
-      max-width: 100%;
+    .info-value {
+      font-size: 14px;
+      font-family: ui-sans-serif, system-ui, sans-serif;
+    }
+
+    .preview {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 14px;
+      background: #fff;
+      margin-bottom: 14px;
+    }
+
+    #canvas {
+      width: 100%;
+      max-height: 420px;
+      border-radius: 10px;
+      border: 1px solid #d7d0c5;
+      background: #161a1c;
       image-rendering: pixelated;
+      object-fit: contain;
     }
 
     #pixel-info {
-      font-size: 0.8rem;
-      color: var(--text-dim);
-      font-variant-numeric: tabular-nums;
+      margin-top: 8px;
+      color: var(--muted);
+      font-family: ui-sans-serif, system-ui, sans-serif;
+      font-size: 12px;
     }
 
-    /* Header table panel */
-    #header-panel { grid-column: 1 / 2; grid-row: 2; }
-
-    /* Data table panel */
-    #table-panel { grid-column: 1 / 3; grid-row: 3; }
+    .empty-msg {
+      color: var(--muted);
+      font-size: 12px;
+      font-family: ui-sans-serif, system-ui, sans-serif;
+    }
 
     table.data-table {
       width: 100%;
       border-collapse: collapse;
-      font-size: 0.8rem;
-      font-variant-numeric: tabular-nums;
+      font-size: 12px;
+      font-family: "Cascadia Code", "Fira Code", ui-monospace, monospace;
     }
 
     table.data-table th {
       text-align: left;
-      padding: 0.4rem 0.6rem;
-      border-bottom: 2px solid var(--border);
-      color: var(--accent);
-      font-weight: 600;
+      padding: 8px;
+      border-bottom: 1px solid var(--line);
+      color: var(--muted);
       position: sticky;
       top: 0;
-      background: var(--surface);
+      background: #fff;
     }
 
     table.data-table td {
-      padding: 0.3rem 0.6rem;
-      border-bottom: 1px solid var(--border);
-      color: var(--text);
+      padding: 7px 8px;
+      border-bottom: 1px solid #efe7dc;
+      color: var(--ink);
     }
 
-    table.data-table tr:hover td { background: rgba(108, 140, 255, 0.05); }
-
-    .empty-msg {
-      color: var(--text-dim);
-      font-size: 0.85rem;
-      text-align: center;
-      padding: 2rem;
+    #header-panel .table-wrap,
+    #table-panel .table-wrap {
+      max-height: 220px;
+      overflow: auto;
+      border: 1px solid var(--line);
+      border-radius: 10px;
     }
 
-    @media (max-width: 900px) {
-      main { grid-template-columns: 1fr; }
-      #canvas-panel { grid-column: 1; grid-row: 2; }
-      #header-panel { grid-column: 1; grid-row: 3; }
-      #table-panel { grid-column: 1; grid-row: 4; }
+    @media (max-width: 1020px) {
+      main {
+        grid-template-columns: 1fr;
+      }
+      .left {
+        border-right: 0;
+        border-bottom: 1px solid var(--line);
+      }
+      .info-grid {
+        grid-template-columns: 1fr 1fr;
+      }
     }
   </style>
 </head>
 <body>
+<div class="shell">
+  <header>
+    <div>
+      <h1>FITS Inspection Studio</h1>
+      <div class="subtitle">Interactive FITS viewer with image rendering, header inspection, and table browsing.</div>
+    </div>
+    <div class="nav">
+      <a href="./hips.html">HiPS Demo</a>
+      <a href="./xisf.html">XISF Demo</a>
+    </div>
+  </header>
 
-<header>
-  <h1>fitsjs-ng <span>Web Demo</span></h1>
-  <div class="controls">
-    <label class="file-btn">
-      Open FITS File
-      <input type="file" id="file-input" accept=".fits,.fit,.fts" />
-    </label>
-    <button id="btn-sample">Generate Sample</button>
-    <select id="hdu-select" disabled>
-      <option>No file loaded</option>
-    </select>
-  </div>
-  <div class="status" id="status">Ready</div>
-</header>
-
-<main>
-  <!-- Info panel -->
-  <div class="panel" id="info-panel">
-    <div class="panel-title">Image Info</div>
-    <div class="panel-body">
-      <div class="info-grid" id="info-grid">
-        <div class="empty-msg" style="grid-column:1/-1">Load a FITS file to see info</div>
+  <main>
+    <aside class="left">
+      <div class="block">
+        <h2>Load FITS</h2>
+        <div class="row">
+          <label class="file-btn">
+            Open FITS File
+            <input type="file" id="file-input" accept=".fits,.fit,.fts" />
+          </label>
+          <button id="btn-sample" class="alt">2D Image Sample</button>
+          <button id="btn-sample-cube" class="alt">3D Cube Sample</button>
+          <button id="btn-sample-table" class="alt">Image + Table Sample</button>
+        </div>
+        <div class="row">
+          <select id="hdu-select" disabled>
+            <option>No file loaded</option>
+          </select>
+          <select id="frame-select" disabled>
+            <option>Frame: 0</option>
+          </select>
+        </div>
+        <div class="status" id="status">Ready</div>
       </div>
-    </div>
-  </div>
 
-  <!-- Canvas panel -->
-  <div class="panel" id="canvas-panel">
-    <div class="panel-title">Image Preview</div>
-    <div class="panel-body">
-      <canvas id="canvas" width="400" height="300"></canvas>
-      <div id="pixel-info">Hover over image to see pixel values</div>
-    </div>
-  </div>
+      <div class="block" id="info-panel">
+        <h2>Image Info</h2>
+        <div class="info-grid" id="info-grid">
+          <div class="empty-msg" style="grid-column:1/-1">Load a FITS file to see info</div>
+        </div>
+      </div>
 
-  <!-- Header keywords panel -->
-  <div class="panel" id="header-panel">
-    <div class="panel-title">Header Keywords</div>
-    <div class="panel-body">
-      <div class="empty-msg" id="header-empty">No header loaded</div>
-      <table class="data-table" id="header-table" style="display:none">
-        <thead><tr><th>Keyword</th><th>Value</th></tr></thead>
-        <tbody id="header-tbody"></tbody>
-      </table>
-    </div>
-  </div>
+      <div class="block" id="header-panel">
+        <h2>Header Keywords</h2>
+        <div class="empty-msg" id="header-empty">No header loaded</div>
+        <div class="table-wrap">
+          <table class="data-table" id="header-table" style="display:none">
+            <thead><tr><th>Keyword</th><th>Value</th></tr></thead>
+            <tbody id="header-tbody"></tbody>
+          </table>
+        </div>
+      </div>
 
-  <!-- Data table panel (for TABLE / BINTABLE HDUs) -->
-  <div class="panel" id="table-panel" style="display:none">
-    <div class="panel-title">Table Data</div>
-    <div class="panel-body">
-      <table class="data-table" id="fits-table">
-        <thead><tr id="fits-table-head"></tr></thead>
-        <tbody id="fits-table-body"></tbody>
-      </table>
-    </div>
-  </div>
-</main>
+      <div class="block" id="table-panel" style="display:none">
+        <h2>Table Data</h2>
+        <div class="table-wrap">
+          <table class="data-table" id="fits-table">
+            <thead><tr id="fits-table-head"></tr></thead>
+            <tbody id="fits-table-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </aside>
+
+    <section class="right">
+      <div class="preview" id="canvas-panel">
+        <h2>Image Preview</h2>
+        <canvas id="canvas" width="400" height="300"></canvas>
+        <div id="pixel-info">Hover over image to see pixel values</div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "@xmldom/xmldom": "https://esm.sh/@xmldom/xmldom@0.8.11",
+    "fflate": "https://esm.sh/fflate@0.8.2",
+    "js-sha3": "https://esm.sh/js-sha3@0.9.3",
+    "fast-png": "https://esm.sh/fast-png@8.0.0",
+    "jpeg-js": "https://esm.sh/jpeg-js@0.4.4",
+    "@hscmap/healpix": "https://esm.sh/@hscmap/healpix@1.4.12",
+    "@fxpineau/moc-wasm": "https://esm.sh/@fxpineau/moc-wasm@0.11.0"
+  }
+}
+</script>
 
 <script type="module">
   import { FITS } from '../../dist/index.js';
@@ -279,6 +368,8 @@
   let currentFits = null;
   let currentPixels = null;
   let currentImage = null;
+  let currentHduIndex = 0;
+  let currentFrameIndex = 0;
 
   const $ = (sel) => document.querySelector(sel);
 
@@ -342,6 +433,101 @@
     return buf;
   }
 
+  function generateCubeSampleFits() {
+    const W = 48, H = 32, D = 4;
+    const headerStr = makeHeaderBlock([
+      card("SIMPLE  =                    T / Standard FITS"),
+      card("BITPIX  =                  -32 / IEEE single precision"),
+      card("NAXIS   =                    3 / Number of axes"),
+      card(`NAXIS1  =                   ${String(W).padStart(2)} / Width`),
+      card(`NAXIS2  =                   ${String(H).padStart(2)} / Height`),
+      card(`NAXIS3  =                   ${String(D).padStart(2)} / Depth`),
+      card("OBJECT  = 'Cube Pattern'       / 3D demo cube"),
+    ]);
+    const headerBytes = strToBytes(headerStr);
+    const nPixels = W * H * D;
+    const dataLen = padLen(nPixels * 4);
+    const buf = new ArrayBuffer(headerBytes.length + dataLen);
+    new Uint8Array(buf).set(headerBytes, 0);
+    const view = new DataView(buf);
+    const off = headerBytes.length;
+    for (let z = 0; z < D; z++) {
+      for (let y = 0; y < H; y++) {
+        for (let x = 0; x < W; x++) {
+          const i = z * (W * H) + y * W + x;
+          const base = Math.sin((x + z * 6) * 0.18) * Math.cos((y + z * 4) * 0.14) * 260;
+          view.setFloat32(off + i * 4, base + z * 180 + 900, false);
+        }
+      }
+    }
+    return buf;
+  }
+
+  function generateImageTableSampleFits() {
+    const imgW = 4, imgH = 3;
+    const imgPixels = Array.from({ length: imgW * imgH }, (_, i) => (i + 1) * 120);
+    const primaryStr = makeHeaderBlock([
+      card("SIMPLE  =                    T / Standard FITS"),
+      card("BITPIX  =                   16 / Bits per pixel"),
+      card("NAXIS   =                    2 / Number of axes"),
+      card(`NAXIS1  =                   ${String(imgW).padStart(2)} / Width`),
+      card(`NAXIS2  =                   ${String(imgH).padStart(2)} / Height`),
+      card("EXTEND  =                    T / Extensions present"),
+      card("OBJECT  = 'Image+Table'        / Multi-HDU sample"),
+    ]);
+
+    const tableRows = [
+      'Sirius     -1.46  A1V   ',
+      'Canopus    -0.74  F0II  ',
+      'Arcturus   -0.05  K1III ',
+      'Vega       0.03   A0V   ',
+    ];
+    const rowByteSize = tableRows[0].length;
+    const tableHeaderStr = makeHeaderBlock([
+      card("XTENSION= 'TABLE   '           / ASCII table extension"),
+      card("BITPIX  =                    8 / Bits per pixel"),
+      card("NAXIS   =                    2 / Number of axes"),
+      card(`NAXIS1  =                   ${String(rowByteSize).padStart(2)} / Row width`),
+      card(`NAXIS2  =                   ${String(tableRows.length).padStart(2)} / Number of rows`),
+      card("PCOUNT  =                    0 / No extra parameters"),
+      card("GCOUNT  =                    1 / One group"),
+      card("TFIELDS =                    3 / Number of columns"),
+      card("TTYPE1  = 'STAR    '"),
+      card("TFORM1  = 'A10     '"),
+      card("TTYPE2  = 'MAG     '"),
+      card("TFORM2  = 'F6.2    '"),
+      card("TTYPE3  = 'SPTYPE  '"),
+      card("TFORM3  = 'A6      '"),
+    ]);
+
+    const primaryBytes = strToBytes(primaryStr);
+    const tableHeaderBytes = strToBytes(tableHeaderStr);
+    const imgDataLen = padLen(imgW * imgH * 2);
+    const tableDataLen = padLen(rowByteSize * tableRows.length);
+    const total = primaryBytes.length + imgDataLen + tableHeaderBytes.length + tableDataLen;
+    const buffer = new ArrayBuffer(total);
+    const u8 = new Uint8Array(buffer);
+    const view = new DataView(buffer);
+
+    let offset = 0;
+    u8.set(primaryBytes, offset);
+    offset += primaryBytes.length;
+    for (let i = 0; i < imgPixels.length; i++) {
+      view.setInt16(offset + i * 2, imgPixels[i], false);
+    }
+    offset += imgDataLen;
+
+    u8.set(tableHeaderBytes, offset);
+    offset += tableHeaderBytes.length;
+    for (let r = 0; r < tableRows.length; r++) {
+      const row = tableRows[r];
+      for (let c = 0; c < row.length; c++) {
+        u8[offset + r * rowByteSize + c] = row.charCodeAt(c);
+      }
+    }
+    return buffer;
+  }
+
   // ── Display logic ──────────────────────────────────────────────────
 
   function formatBitpix(bitpix) {
@@ -375,6 +561,27 @@
     }).join('');
     $('#header-table').style.display = '';
     $('#header-empty').style.display = 'none';
+  }
+
+  function updateFrameSelect(image) {
+    const frameSelect = $('#frame-select');
+    if (!image || !image.isDataCube() || image.depth <= 1) {
+      currentFrameIndex = 0;
+      frameSelect.innerHTML = '<option>Frame: 0</option>';
+      frameSelect.disabled = true;
+      return;
+    }
+
+    currentFrameIndex = Math.max(0, Math.min(currentFrameIndex, image.depth - 1));
+    frameSelect.innerHTML = '';
+    for (let i = 0; i < image.depth; i++) {
+      const opt = document.createElement('option');
+      opt.value = String(i);
+      opt.textContent = `Frame ${i}`;
+      frameSelect.appendChild(opt);
+    }
+    frameSelect.value = String(currentFrameIndex);
+    frameSelect.disabled = false;
   }
 
   function renderImageToCanvas(pixels, width, height) {
@@ -452,6 +659,7 @@
   async function displayHDU(index) {
     const hdu = currentFits.hdus[index];
     if (!hdu) return;
+    currentHduIndex = index;
 
     const header = hdu.header;
     const dataType = header.getDataType();
@@ -464,7 +672,8 @@
     if (dataType === 'Image') {
       const image = hdu.data;
       currentImage = image;
-      const frame = await image.getFrame(0);
+      updateFrameSelect(image);
+      const frame = await image.getFrame(currentFrameIndex);
       currentPixels = frame;
 
       const { min, max } = renderImageToCanvas(frame, image.width, image.height);
@@ -474,17 +683,19 @@
         ['Dimensions', `${image.width} × ${image.height}`],
         ['BITPIX', formatBitpix(image.bitpix)],
         ['Data Cube', image.isDataCube() ? `${image.depth} frames` : 'No'],
+        ['Frame', image.isDataCube() ? `${currentFrameIndex + 1}/${image.depth}` : '1/1'],
         ['Min', min.toFixed(2)],
         ['Max', max.toFixed(2)],
         ['BZERO', image.bzero],
         ['BSCALE', image.bscale],
       ]);
 
-      setStatus(`HDU ${index}: Image ${image.width}×${image.height}`);
+      setStatus(`HDU ${index}: Image ${image.width}×${image.height} (frame ${currentFrameIndex})`);
     } else if (dataType === 'Table' || dataType === 'BinaryTable') {
       const table = hdu.data;
       currentImage = null;
       currentPixels = null;
+      updateFrameSelect(null);
 
       // Clear canvas
       const canvas = $('#canvas');
@@ -511,6 +722,7 @@
     } else {
       currentImage = null;
       currentPixels = null;
+      updateFrameSelect(null);
       showInfo([['Type', dataType ?? 'No data']]);
       setStatus(`HDU ${index}: ${dataType ?? 'empty'}`);
     }
@@ -521,6 +733,8 @@
       setStatus('Parsing...');
       const fits = FITS.fromArrayBuffer(buffer);
       currentFits = fits;
+      currentHduIndex = 0;
+      currentFrameIndex = 0;
 
       // Populate HDU selector
       const select = $('#hdu-select');
@@ -559,14 +773,34 @@
   });
 
   $('#btn-sample').addEventListener('click', async () => {
-    setStatus('Generating sample...');
+    setStatus('Generating 2D sample...');
     const buffer = generateSampleFits();
+    await loadFits(buffer);
+  });
+
+  $('#btn-sample-cube').addEventListener('click', async () => {
+    setStatus('Generating 3D cube sample...');
+    const buffer = generateCubeSampleFits();
+    await loadFits(buffer);
+  });
+
+  $('#btn-sample-table').addEventListener('click', async () => {
+    setStatus('Generating image+table sample...');
+    const buffer = generateImageTableSampleFits();
     await loadFits(buffer);
   });
 
   $('#hdu-select').addEventListener('change', async (e) => {
     const index = parseInt(e.target.value, 10);
+    currentFrameIndex = 0;
     await displayHDU(index);
+  });
+
+  $('#frame-select').addEventListener('change', async (e) => {
+    const frame = parseInt(e.target.value, 10);
+    if (!Number.isInteger(frame)) return;
+    currentFrameIndex = frame;
+    await displayHDU(currentHduIndex);
   });
 
   // Pixel info on hover

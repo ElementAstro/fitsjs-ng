@@ -185,7 +185,7 @@ describe('Header', () => {
       new Header(
         makeHeaderBlock([
           card('SIMPLE  =                    T / Standard FITS'),
-          card('BITPIX  =                   64 / Invalid BITPIX'),
+          card('BITPIX  =                   12 / Invalid BITPIX'),
           card('NAXIS   =                    0 / No data'),
         ]),
       )

@@ -10,7 +10,7 @@ interface FrameOffset {
 
 /**
  * Represents a standard FITS image stored in the data unit of a FITS file.
- * Supports BITPIX values: 8, 16, 32, -32, -64
+ * Supports BITPIX values: 8, 16, 32, 64, -32, -64
  * Supports data cubes (NAXIS > 2) with frame-by-frame reading.
  */
 export class Image extends DataUnit {
@@ -108,6 +108,30 @@ export class Image extends DataUnit {
       return result
     }
 
+    if (bitpix === 64) {
+      const canKeepBigInt = bscale === 1 && Number.isInteger(bzero) && Number.isSafeInteger(bzero)
+      if (canKeepBigInt) {
+        const result = new BigInt64Array(nPixels)
+        const zero = BigInt(bzero)
+        for (let i = 0; i < nPixels; i++) {
+          result[i] = view.getBigInt64(i * 8, false) + zero
+        }
+        return result
+      }
+
+      const result = new Float64Array(nPixels)
+      if (identity) {
+        for (let i = 0; i < nPixels; i++) {
+          result[i] = Number(view.getBigInt64(i * 8, false))
+        }
+      } else {
+        for (let i = 0; i < nPixels; i++) {
+          result[i] = bzero + bscale * Number(view.getBigInt64(i * 8, false))
+        }
+      }
+      return result
+    }
+
     if (bitpix === -32) {
       const result = new Float32Array(nPixels)
       if (identity) {
@@ -161,6 +185,21 @@ export class Image extends DataUnit {
   }
 
   /**
+   * Read a frame as numbers, explicitly allowing precision loss for int64 images.
+   */
+  async getFrameAsNumber(frame: number = 0): Promise<Float64Array> {
+    const pixels = await this.getFrame(frame)
+    if (pixels instanceof Float64Array) {
+      return pixels
+    }
+    const out = new Float64Array(pixels.length)
+    for (let i = 0; i < pixels.length; i++) {
+      out[i] = Number(pixels[i]!)
+    }
+    return out
+  }
+
+  /**
    * Read multiple sequential frames from a data cube.
    *
    * @param startFrame - First frame index to read.
@@ -188,12 +227,12 @@ export class Image extends DataUnit {
   }
 
   /** Compute min/max pixel values of an array, ignoring NaN. */
-  getExtent(arr: TypedArray): [number, number] {
+  getExtent(arr: TypedArray): [number | bigint, number | bigint] {
     return getExtent(arr)
   }
 
   /** Get a single pixel value at (x, y) from a pixel array. */
-  getPixel(arr: TypedArray, x: number, y: number): number {
+  getPixel(arr: TypedArray, x: number, y: number): number | bigint {
     return getPixel(arr, x, y, this.width)
   }
 }
