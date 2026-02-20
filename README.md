@@ -1,14 +1,17 @@
 # fitsjs-ng
 
-Modern TypeScript library for reading and writing [FITS](https://fits.gsfc.nasa.gov/) and [XISF](https://pixinsight.com/xisf/) astronomical files. A complete rewrite of [astrojs/fitsjs](https://github.com/astrojs/fitsjs) with Promise-based APIs, full type safety, and Node.js/browser dual support.
+Modern TypeScript library for reading and writing [FITS](https://fits.gsfc.nasa.gov/), [SER](https://grischa-hahn.hier-im-netz.de/astro/ser/), and [XISF](https://pixinsight.com/xisf/) astronomical files. A complete rewrite of [astrojs/fitsjs](https://github.com/astrojs/fitsjs) with Promise-based APIs, full type safety, and Node.js/browser dual support.
 
 ## Features
 
 - **FITS Image Reading** — BITPIX 8, 16, 32, 64, -32, -64 with BZERO/BSCALE scaling
 - **FITS Image Writing** — build FITS HDUs and export complete FITS buffers
+- **SER Read/Write** — full SER v3 parsing/writing, timestamps, Bayer/CMY + RGB/BGR support
 - **XISF Read/Write** — monolithic (`.xisf`) and distributed (`.xish` + `.xisb`) workflows
 - **XISF Signature Verification** — XML-DSig `SignedInfo`/digest/signature verification with policy control
 - **XISF↔FITS Conversion** — strict conversion with metadata preservation
+- **XISF↔HiPS Conversion** — direct conversion APIs via standards-preserving FITS bridge
+- **SER↔FITS / SER↔XISF Conversion** — reversible metadata/time-stamp aware conversion pipelines
 - **HiPS Image + HiPS3D** — read/write HiPS properties, tiles, Allsky, and lint checks
 - **FITS↔HiPS Conversion** — build HiPS directories and export tile/map/cutout FITS
 - **Data Cubes** — Frame-by-frame reading of 3D+ image data
@@ -30,7 +33,20 @@ pnpm add fitsjs-ng
 ## Quick Start
 
 ```ts
-import { FITS, XISF, XISFWriter, convertFitsToXisf, convertXisfToFits, Image } from 'fitsjs-ng'
+import {
+  FITS,
+  SER,
+  XISF,
+  XISFWriter,
+  convertFitsToXisf,
+  convertXisfToFits,
+  convertSerToFits,
+  convertFitsToSer,
+  convertXisfToHiPS,
+  convertHiPSToXisf,
+  NodeFSTarget,
+  Image,
+} from 'fitsjs-ng'
 
 // From a URL
 const fits = await FITS.fromURL('https://example.com/image.fits')
@@ -57,6 +73,9 @@ const [min, max] = image.getExtent(pixels)
 // XISF from URL / buffer
 const xisf = await XISF.fromURL('https://example.com/image.xisf')
 
+// SER from URL / buffer
+const ser = await SER.fromURL('https://example.com/capture.ser')
+
 // Convert XISF -> FITS
 const fitsBytes = await convertXisfToFits(
   await fetch('https://example.com/image.xisf').then((r) => r.arrayBuffer()),
@@ -64,6 +83,26 @@ const fitsBytes = await convertXisfToFits(
 
 // Convert FITS -> XISF (monolithic by default)
 const xisfBytes = await convertFitsToXisf(fitsBytes)
+
+// Convert SER -> FITS / FITS -> SER
+const fitsFromSer = await convertSerToFits(
+  await fetch('https://example.com/capture.ser').then((r) => r.arrayBuffer()),
+)
+const serFromFits = await convertFitsToSer(fitsFromSer)
+
+// Convert XISF -> HiPS and HiPS -> XISF
+await convertXisfToHiPS(
+  await fetch('https://example.com/image.xisf').then((r) => r.arrayBuffer()),
+  {
+    output: new NodeFSTarget('./out/xisf-hips'),
+    title: 'XISF Survey',
+    creatorDid: 'ivo://example/xisf',
+    hipsOrder: 6,
+  },
+)
+const xisfFromHips = await convertHiPSToXisf('./out/xisf-hips', {
+  cutout: { width: 512, height: 512, ra: 83.63, dec: 22.01, fov: 1.2 },
+})
 
 // Write distributed XISF unit
 const distributed = await XISFWriter.toDistributed(xisf.unit)
@@ -123,6 +162,30 @@ Static factory methods:
 | `XISF.fromURL(url)`            | Fetch and parse remote `.xisf`/`.xish`   |
 | `XISF.fromNodeBuffer(buffer)`  | Parse from Node.js `Buffer`-like payload |
 
+### `SER`
+
+Static factory methods:
+
+| Method                        | Description                                         |
+| ----------------------------- | --------------------------------------------------- |
+| `SER.fromArrayBuffer(buffer)` | Parse SER from `ArrayBuffer`                        |
+| `SER.fromBlob(blob)`          | Parse SER from `Blob`/`File`                        |
+| `SER.fromURL(url)`            | Fetch and parse remote `.ser`                       |
+| `SER.fromNodeBuffer(buffer)`  | Parse SER from Node.js `Buffer`-like payload        |
+| `parseSERBuffer(buffer)`      | Parse SER buffer and return structured parse result |
+| `parseSERBlob(blob)`          | Parse SER blob and return structured parse result   |
+| `writeSER(input)`             | Serialize SER header + frames (+ optional trailer)  |
+
+Instance helpers:
+
+| Method                     | Description                                    |
+| -------------------------- | ---------------------------------------------- |
+| `ser.getFrameCount()`      | Total frame count                              |
+| `ser.getFrameRGB(i)`       | RGB helper decode for mono/Bayer/CMY/RGB/BGR   |
+| `ser.getDurationTicks()`   | Duration from trailer timestamps (100ns ticks) |
+| `ser.getDurationSeconds()` | Duration in seconds from trailer timestamps    |
+| `ser.getEstimatedFPS()`    | Estimated FPS from timestamp spacing           |
+
 ### `XISFWriter`
 
 | Method                       | Description                                      |
@@ -136,8 +199,18 @@ Static factory methods:
 | ----------------------------------- | -------------------------------------------------- |
 | `convertXisfToFits(input)`          | Convert XISF to FITS bytes                         |
 | `convertFitsToXisf(input)`          | Convert FITS to XISF bytes (or distributed object) |
+| `convertSerToFits(input)`           | Convert SER to FITS bytes                          |
+| `convertFitsToSer(input)`           | Convert FITS to SER bytes                          |
+| `convertSerToXisf(input)`           | Convert SER to XISF bytes                          |
+| `convertXisfToSer(input)`           | Convert XISF to SER bytes                          |
 | `convertFitsToHiPS(input, options)` | Convert FITS to HiPS directory                     |
 | `convertHiPSToFITS(input, options)` | Export HiPS to FITS tile/map/cutout                |
+
+SER conversion options:
+
+- `convertSerToFits(input, { layout: 'cube' | 'multi-hdu' })` (default: `'cube'`)
+- `convertFitsToSer(input, { sourceLayout: 'auto' | 'cube' | 'multi-hdu' })` (default: `'auto'`)
+- `convertXisfToSer(input, { imageIndex })` for multi-image XISF units
 
 ### HiPS
 
@@ -289,6 +362,7 @@ pnpm lint          # Lint
 pnpm demo          # FITS/XISF CLI demo
 pnpm demo:hips     # HiPS Node demo (FITS->HiPS->FITS)
 pnpm demo:xisf     # XISF Node demo (FITS<->XISF, monolithic/distributed)
+pnpm demo:ser      # SER Node demo (SER<->FITS<->XISF)
 pnpm demo:web      # Serve web demos (open /demo/web/index.html, /demo/web/hips.html, /demo/web/xisf.html)
 ```
 
@@ -297,6 +371,7 @@ pnpm demo:web      # Serve web demos (open /demo/web/index.html, /demo/web/hips.
 - HiPS metadata and directory naming follow HiPS 1.0 conventions (`Norder*/Dir*/Npix*`, `Norder3/Allsky.*`, `properties`, `Moc.fits`).
 - FITS writing follows FITS 4.0 card/block alignment rules (80-char cards, 2880-byte blocks).
 - Output `properties` defaults to `hips_version=1.4` and also writes legacy compatibility fields (`coordsys`, `maxOrder`, `format`).
+- XISF default codec provider supports `zlib`, `lz4`, and `lz4hc` for read/write and `zstd` for read; custom providers can extend encoding support.
 
 ## Remote Backend Behavior
 

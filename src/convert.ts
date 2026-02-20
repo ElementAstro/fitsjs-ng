@@ -387,10 +387,6 @@ export async function convertXisfToFits(
           strictValidation,
         })
 
-  if (xisf.unit.images.length === 0) {
-    throw new XISFConversionError('No images found in XISF unit')
-  }
-
   const imageHDUs: FITSWriteHDU[] = []
 
   for (let i = 0; i < xisf.unit.images.length; i++) {
@@ -504,6 +500,16 @@ export async function convertXisfToFits(
         hdu: toFITSWriteHDU(preserved, await decodeBase64(preserved.dataBase64)),
       })
     }
+  }
+
+  if (xisf.unit.images.length === 0) {
+    if (preservedHDUs.length === 0) {
+      throw new XISFConversionError('No images or preserved FITS HDUs found in XISF unit')
+    }
+    const ordered = preservedLayout
+      ? preservedHDUs.sort((a, b) => a.index - b.index).map((item) => item.hdu)
+      : preservedHDUs.map((item) => item.hdu)
+    return writeFITS(ordered)
   }
 
   let hdus: FITSWriteHDU[] = imageHDUs
@@ -735,7 +741,9 @@ export async function convertFitsToXisf(
   }
 
   if (images.length === 0) {
-    throw new XISFConversionError('No convertible FITS image HDUs found')
+    if (preservedNonImageHDUs.length === 0) {
+      throw new XISFConversionError('No convertible FITS image HDUs found')
+    }
   }
 
   let metadata: XISFUnit['metadata'] = restoredMeta.metadata ?? [

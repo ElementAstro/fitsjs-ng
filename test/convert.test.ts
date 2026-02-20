@@ -217,4 +217,44 @@ describe('XISF/FITS conversion', () => {
     expect(view.getBigUint64(0, true)).toBe(9223372036854775813n)
     expect(view.getBigUint64(8, true)).toBe(9232379236109516803n)
   })
+
+  it('round-trips table-only FITS payloads through preserved HDU metadata', async () => {
+    const tableOnlyFits = writeFITS([
+      {
+        cards: [
+          { key: 'SIMPLE', value: true, comment: 'Standard FITS' },
+          { key: 'BITPIX', value: 8, comment: 'Character data' },
+          { key: 'NAXIS', value: 0, comment: 'No data in primary HDU' },
+          { key: 'EXTEND', value: true, comment: 'Extensions are present' },
+        ],
+      },
+      {
+        cards: [
+          { key: 'XTENSION', value: 'BINTABLE', comment: 'Binary table extension' },
+          { key: 'BITPIX', value: 8 },
+          { key: 'NAXIS', value: 2 },
+          { key: 'NAXIS1', value: 4 },
+          { key: 'NAXIS2', value: 1 },
+          { key: 'PCOUNT', value: 0 },
+          { key: 'GCOUNT', value: 1 },
+          { key: 'TFIELDS', value: 1 },
+          { key: 'TTYPE1', value: 'VALUE' },
+          { key: 'TFORM1', value: 'E' },
+        ],
+        data: new Uint8Array([0x3f, 0x80, 0x00, 0x00]),
+      },
+    ])
+
+    const xisf = await convertFitsToXisf(tableOnlyFits)
+    const parsed = await XISF.fromArrayBuffer(xisf as ArrayBuffer)
+    expect(parsed.unit.images).toHaveLength(0)
+
+    const restoredFits = await convertXisfToFits(xisf as ArrayBuffer, {
+      includeXisfMetaExtension: false,
+    })
+    const restored = FITS.fromArrayBuffer(restoredFits)
+    expect(restored.hdus).toHaveLength(2)
+    expect(restored.hdus[1]!.header.extensionType).toBe('BINTABLE')
+    expect(restored.hdus[1]!.header.getString('TTYPE1')).toBe('VALUE')
+  })
 })

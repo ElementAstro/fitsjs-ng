@@ -3,6 +3,15 @@ export { FITS } from './fits'
 export { XISF } from './xisf'
 export { XISFWriter } from './xisf-writer'
 export { convertXisfToFits, convertFitsToXisf } from './convert'
+export { SER } from './ser'
+export { parseSERBuffer, parseSERBlob } from './ser-parser'
+export { writeSER } from './ser-writer'
+export {
+  convertSerToFits,
+  convertFitsToSer,
+  convertSerToXisf,
+  convertXisfToSer,
+} from './ser-convert'
 
 // Core classes
 export { Header } from './header'
@@ -13,7 +22,11 @@ export { DataUnit } from './data-unit'
 export { Image } from './image'
 export { Table } from './table'
 export { BinaryTable } from './binary-table'
-export { CompressedImage } from './compressed-image'
+export {
+  CompressedImage,
+  getCompressedImageDecoderProvider,
+  setCompressedImageDecoderProvider,
+} from './compressed-image'
 
 // Utilities
 export { getExtent, getPixel } from './image-utils'
@@ -24,6 +37,7 @@ export { HiPS } from './hips'
 export { HiPSProperties } from './hips-properties'
 export { convertFitsToHiPS } from './hips-build'
 export { convertHiPSToFITS } from './hips-export'
+export { convertXisfToHiPS, convertHiPSToXisf } from './hips-xisf-convert'
 export { NodeFSTarget, BrowserZipTarget, BrowserOPFSTarget } from './storage-target'
 export { lintHiPS } from './validation/hips-lint'
 
@@ -50,6 +64,32 @@ export type {
   AlgorithmParameters,
 } from './types'
 export type {
+  CompressedImageDecodeContext,
+  CompressedImageDecoderProvider,
+  CompressedImageOptions,
+} from './compressed-image'
+export type {
+  SERColorId,
+  SERByteOrder,
+  SEREndiannessPolicy,
+  SERSampleArray,
+  SERWarning,
+  SERWarningCallback,
+  SERReadOptions,
+  SERHeader,
+  SERFrameInfo,
+  SERFrameData,
+  SERParsedFile,
+  SERWriteHeader,
+  SERWriteInput,
+  SERWriteOptions,
+  SERConversionOptions,
+  SerToFitsOptions,
+  FitsToSerOptions,
+  SerToXisfOptions,
+  XisfToSerOptions,
+} from './ser-types'
+export type {
   HiPSFrame,
   HiPSTileFormat,
   HiPSDataproductType,
@@ -69,6 +109,8 @@ export type {
   HiPSRemoteOptions,
   ConvertFitsToHiPSOptions,
   ConvertHiPSToFITSOptions,
+  ConvertXisfToHiPSOptions,
+  ConvertHiPSToXisfOptions,
   HiPSInput,
 } from './hips-types'
 
@@ -119,6 +161,7 @@ export {
 
 // Errors
 export { FITSError, HeaderError, DataError, DecompressionError } from './errors'
+export { SERError, SERParseError, SERValidationError, SERConversionError } from './ser-errors'
 export {
   XISFError,
   XISFParseError,

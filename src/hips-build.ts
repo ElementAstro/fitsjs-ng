@@ -270,6 +270,7 @@ export async function buildHiPSFromFITS(
     formats: normalized.formats,
     extras: normalized.propertiesOverrides,
   })
+  properties.set('hips_order_min', minOrder)
   if (normalized.includeCompatibilityFields) {
     properties.withCompatibilityFields()
   }

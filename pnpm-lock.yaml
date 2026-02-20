@@ -23,12 +23,18 @@ importers:
       fflate:
         specifier: ^0.8.2
         version: 0.8.2
+      fzstd:
+        specifier: ^0.1.1
+        version: 0.1.1
       jpeg-js:
         specifier: ^0.4.4
         version: 0.4.4
       js-sha3:
         specifier: ^0.9.3
         version: 0.9.3
+      lz4js:
+        specifier: ^0.2.0
+        version: 0.2.0
     devDependencies:
       '@commitlint/cli':
         specifier: ^20.4.1
@@ -42,6 +48,9 @@ importers:
       '@size-limit/preset-small-lib':
         specifier: ^11.2.0
         version: 11.2.0(size-limit@11.2.0)
+      '@types/lz4js':
+        specifier: ^0.2.2
+        version: 0.2.2
       '@types/node':
         specifier: ^25.2.3
         version: 25.2.3
@@ -986,6 +995,9 @@ packages:
   '@types/linkify-it@5.0.0':
     resolution: {integrity: sha512-sVDA58zAw4eWAffKOaQH5/5j3XeayukzDk+ewSsnv3p4yJEZHCCzMDiZM8e0OUrRvmpGZ85jf4yDHkHsgBNr9Q==}
 
+  '@types/lz4js@0.2.2':
+    resolution: {integrity: sha512-pqXfoJ2AwllcLTf1Nia0+HT1KHj8z4wWo3bBP6vn7Aen5ySywBqrh/u1TyBwWxuKDS+mPzVHkPbHivqZEfk6pA==}
+
   '@types/markdown-it@14.1.2':
     resolution: {integrity: sha512-promo4eFwuiW+TfGxhi+0x3czqTYJkG8qB17ZUJiVF10Xm7NLVRSLUsfRTU/6h1e24VvRnXCx+hG7li58lkzog==}
 
@@ -1588,6 +1600,9 @@ packages:
     engines: {node: ^8.16.0 || ^10.6.0 || >=11.0.0}
     os: [darwin]
 
+  fzstd@0.1.1:
+    resolution: {integrity: sha512-dkuVSOKKwh3eas5VkJy1AW1vFpet8TA/fGmVA5krThl8YcOVE/8ZIoEA1+U1vEn5ckxxhLirSdY837azmbaNHA==}
+
   get-caller-file@2.0.5:
     resolution: {integrity: sha512-DyFP3BM/3YHTQOCUL/w0OZHR0lpKeGrxotcHWcqNEdnltqFwXVfhEBQ94eIo34AfQpo0rGki4cyIiftY06h2Fg==}
     engines: {node: 6.* || 8.* || >= 10.*}
@@ -1817,6 +1832,9 @@ packages:
   log-update@6.1.0:
     resolution: {integrity: sha512-9ie8ItPR6tjY5uYJh8K/Zrv/RMZ5VOlOWvtZdEHYSTFKZfIBPQa9tOAEeAWhd+AnIneLJ22w5fjOYtoutpWq5w==}
     engines: {node: '>=18'}
+
+  lz4js@0.2.0:
+    resolution: {integrity: sha512-gY2Ia9Lm7Ep8qMiuGRhvUq0Q7qUereeldZPP1PMEJxPtEWHJLqw9pgX68oHajBH0nzJK4MaZEA/YNV3jT8u8Bg==}
 
   magic-string@0.30.21:
     resolution: {integrity: sha512-vd2F4YUyEXKGcLHoq+TEyCjxueSeHnFxyyjNp80yg0XV4vUhnDer/lvvlqM/arB5bXQN5K2/3oinyCRyx8T2CQ==}
@@ -3202,6 +3220,8 @@ snapshots:
 
   '@types/linkify-it@5.0.0': {}
 
+  '@types/lz4js@0.2.2': {}
+
   '@types/markdown-it@14.1.2':
     dependencies:
       '@types/linkify-it': 5.0.0
@@ -3919,6 +3939,8 @@ snapshots:
   fsevents@2.3.3:
     optional: true
 
+  fzstd@0.1.1: {}
+
   get-caller-file@2.0.5: {}
 
   get-east-asian-width@1.4.0: {}
@@ -4114,6 +4136,8 @@ snapshots:
       slice-ansi: 7.1.2
       strip-ansi: 7.1.2
       wrap-ansi: 9.0.2
+
+  lz4js@0.2.0: {}
 
   magic-string@0.30.21:
     dependencies:

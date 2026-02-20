@@ -1,5 +1,6 @@
 import type { FITS } from './fits'
 import type { TypedArray } from './types'
+import type { ConversionOptions, XISFReadOptions, XISFWriteOptions } from './xisf-types'
 
 export type HiPSFrame = 'equatorial' | 'galactic' | 'ecliptic'
 export type HiPSTileFormat = 'fits' | 'png' | 'jpeg'
@@ -127,6 +128,17 @@ export interface ConvertHiPSToFITSOptions extends HiPSRemoteOptions {
   tile?: HiPSExportTileOptions
   map?: HiPSExportMapOptions
   cutout?: HiPSCutoutOptions
+}
+
+export interface ConvertXisfToHiPSOptions extends ConvertFitsToHiPSOptions {
+  imageIndex?: number
+  xisfReadOptions?: XISFReadOptions
+}
+
+export interface ConvertHiPSToXisfOptions extends ConvertHiPSToFITSOptions {
+  distributed?: boolean
+  writeOptions?: XISFWriteOptions
+  conversionOptions?: ConversionOptions
 }
 
 export type HiPSInput = string | URL | HiPSExportTarget | { root: string; propertiesPath?: string }

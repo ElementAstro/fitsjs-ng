@@ -159,24 +159,9 @@ describe('Header Verification', () => {
   })
 
   describe('ZCMPTYPE keyword', () => {
-    it('should accept RICE_1', () => {
-      const header = makeHeader([
-        card("XTENSION= 'BINTABLE'           / Binary table"),
-        card('BITPIX  =                    8 / Bits per pixel'),
-        card('NAXIS   =                    2 / Number of axes'),
-        card('NAXIS1  =                   10 / Width'),
-        card('NAXIS2  =                    5 / Rows'),
-        card('PCOUNT  =                    0 / No extra'),
-        card('GCOUNT  =                    1 / One group'),
-        card('TFIELDS =                    1 / Fields'),
-        card("ZCMPTYPE= 'RICE_1  '           / Compression"),
-      ])
-      expect(header.get('ZCMPTYPE')).toBe('RICE_1')
-    })
-
-    it('should reject unsupported compression types', () => {
-      expect(() =>
-        makeHeader([
+    it('should accept FITS tiled-image standard compression values', () => {
+      for (const compression of ['RICE_1', 'GZIP_1', 'PLIO_1', 'HCOMPRESS_1']) {
+        const header = makeHeader([
           card("XTENSION= 'BINTABLE'           / Binary table"),
           card('BITPIX  =                    8 / Bits per pixel'),
           card('NAXIS   =                    2 / Number of axes'),
@@ -185,9 +170,10 @@ describe('Header Verification', () => {
           card('PCOUNT  =                    0 / No extra'),
           card('GCOUNT  =                    1 / One group'),
           card('TFIELDS =                    1 / Fields'),
-          card("ZCMPTYPE= 'GZIP_1  '           / Not implemented"),
-        ]),
-      ).toThrow(HeaderError)
+          card(`ZCMPTYPE= '${compression.padEnd(8)}'           / Compression`),
+        ])
+        expect(header.get('ZCMPTYPE')).toBe(compression)
+      }
     })
 
     it('should reject invalid compression type names', () => {

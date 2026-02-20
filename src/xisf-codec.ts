@@ -1,18 +1,78 @@
 import { unzlibSync, zlibSync } from 'fflate'
+import { compressBlock, compressBound, decompressBlock } from 'lz4js'
+import { decompress as zstdDecompress } from 'fzstd'
 import type { XISFCodecProvider, XISFCompressionSpec } from './xisf-types'
 import { XISFCompressionError } from './xisf-errors'
 
 const SHUFFLE_SUFFIX = '+sh'
 const ZLIB_LEVELS = new Set([0, 1, 2, 3, 4, 5, 6, 7, 8, 9] as const)
 
+const LZ4_CODEC_NAMES = new Set(['lz4', 'lz4hc'])
+const ZSTD_CODEC_NAMES = new Set(['zstd'])
+
+function encodeUncompressedLz4Block(input: Uint8Array): Uint8Array {
+  const literalLength = input.byteLength
+  const extraLengthBytes = literalLength >= 15 ? Math.floor((literalLength - 15) / 255) + 1 : 0
+  const out = new Uint8Array(1 + extraLengthBytes + literalLength)
+  out[0] = Math.min(15, literalLength) << 4
+  let offset = 1
+  if (literalLength >= 15) {
+    let remaining = literalLength - 15
+    while (remaining >= 255) {
+      out[offset++] = 255
+      remaining -= 255
+    }
+    out[offset++] = remaining
+  }
+  out.set(input, offset)
+  return out
+}
+
+function compressLz4(input: Uint8Array): Uint8Array {
+  const out = new Uint8Array(compressBound(input.byteLength))
+  const hashTable = new Uint32Array(1 << 16)
+  const encodedSize = compressBlock(input, out, 0, input.byteLength, hashTable)
+  if (encodedSize > 0) {
+    return out.slice(0, encodedSize)
+  }
+  return encodeUncompressedLz4Block(input)
+}
+
+function decompressLz4(input: Uint8Array, uncompressedSize?: number): Uint8Array {
+  if (!uncompressedSize || uncompressedSize <= 0) {
+    throw new XISFCompressionError('LZ4 codecs require uncompressedSize in XISF compression spec')
+  }
+  const out = new Uint8Array(uncompressedSize)
+  const written = decompressBlock(input, out, 0, input.byteLength, 0)
+  const actualSize = typeof written === 'number' ? written : out.byteLength
+  if (actualSize !== out.byteLength) {
+    throw new XISFCompressionError(
+      `Decoded LZ4 block length mismatch: expected ${out.byteLength}, got ${actualSize}`,
+    )
+  }
+  return out
+}
+
 export const DefaultXISFCodecProvider: XISFCodecProvider = {
   supports(codec: string): boolean {
     const canonical = codec.toLowerCase()
-    return canonical === 'zlib' || canonical === 'zlib+sh'
+    const baseCodec = canonical.endsWith(SHUFFLE_SUFFIX)
+      ? canonical.slice(0, -SHUFFLE_SUFFIX.length)
+      : canonical
+    return baseCodec === 'zlib' || LZ4_CODEC_NAMES.has(baseCodec) || ZSTD_CODEC_NAMES.has(baseCodec)
   },
   compress(codec: string, input: Uint8Array, level?: number): Uint8Array {
-    if (!this.supports(codec)) {
+    const canonical = codec.toLowerCase()
+    if (!this.supports(canonical)) {
       throw new XISFCompressionError(`Unsupported codec in default provider: ${codec}`)
+    }
+    if (LZ4_CODEC_NAMES.has(canonical)) {
+      return compressLz4(input)
+    }
+    if (ZSTD_CODEC_NAMES.has(canonical)) {
+      throw new XISFCompressionError(
+        'Default provider supports zstd decompression only; provide a custom codecProvider for zstd encoding',
+      )
     }
     const normalizedLevel =
       level !== undefined && ZLIB_LEVELS.has(level as never)
@@ -20,9 +80,24 @@ export const DefaultXISFCodecProvider: XISFCodecProvider = {
         : undefined
     return zlibSync(input, { level: normalizedLevel })
   },
-  decompress(codec: string, input: Uint8Array): Uint8Array {
-    if (!this.supports(codec)) {
+  decompress(codec: string, input: Uint8Array, uncompressedSize?: number): Uint8Array {
+    const canonical = codec.toLowerCase()
+    if (!this.supports(canonical)) {
       throw new XISFCompressionError(`Unsupported codec in default provider: ${codec}`)
+    }
+    if (LZ4_CODEC_NAMES.has(canonical)) {
+      return decompressLz4(input, uncompressedSize)
+    }
+    if (ZSTD_CODEC_NAMES.has(canonical)) {
+      const outputBuffer =
+        uncompressedSize && uncompressedSize > 0 ? new Uint8Array(uncompressedSize) : undefined
+      const out = outputBuffer ? zstdDecompress(input, outputBuffer) : zstdDecompress(input)
+      if (outputBuffer && out.byteLength !== outputBuffer.byteLength) {
+        throw new XISFCompressionError(
+          `Decoded zstd block length mismatch: expected ${outputBuffer.byteLength}, got ${out.byteLength}`,
+        )
+      }
+      return out
     }
     return unzlibSync(input)
   },

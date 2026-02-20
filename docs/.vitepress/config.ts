@@ -23,6 +23,8 @@ export default defineConfig({
             { text: 'Getting Started', link: '/guide/getting-started' },
             { text: 'Installation', link: '/guide/installation' },
             { text: 'HiPS', link: '/guide/hips' },
+            { text: 'SER', link: '/guide/ser' },
+            { text: 'Standards Matrix', link: '/guide/standards-matrix' },
           ],
         },
         {
@@ -40,6 +42,7 @@ export default defineConfig({
           items: [
             { text: 'Overview', link: '/api/' },
             { text: 'HiPS', link: '/api/hips' },
+            { text: 'SER', link: '/api/ser' },
           ],
         },
       ],

@@ -10,6 +10,7 @@ const REQUIRED_KEYS = [
   'hips_tile_width',
   'hips_tile_format',
 ] as const
+const CUBE_REQUIRED_KEYS = ['hips_cube_depth', 'hips_cube_firstframe'] as const
 
 const VALID_FRAMES = new Set<HiPSFrame>(['equatorial', 'galactic', 'ecliptic'])
 const VALID_DATAPRODUCT_TYPES = new Set<HiPSDataproductType>(['image', 'cube'])
@@ -19,6 +20,7 @@ export interface HiPSValidationReport {
   ok: boolean
   missing: string[]
   invalid: string[]
+  warnings: string[]
 }
 
 function normalizeValue(value: string): string {
@@ -96,8 +98,9 @@ export class HiPSProperties {
   }
 
   validate(): HiPSValidationReport {
-    const missing = REQUIRED_KEYS.filter((key) => !this.data.has(key))
+    const missing: string[] = REQUIRED_KEYS.filter((key) => !this.data.has(key))
     const invalid: string[] = []
+    const warnings: string[] = []
 
     const frame = this.get('hips_frame')
     if (frame && !VALID_FRAMES.has(frame as HiPSFrame)) {
@@ -112,7 +115,7 @@ export class HiPSProperties {
     const formatValue = this.get('hips_tile_format')
     if (formatValue) {
       const formats = formatValue
-        .split(/\s+/u)
+        .split(/[,\s]+/u)
         .map((value) => value.trim().toLowerCase())
         .filter(Boolean)
       if (
@@ -120,6 +123,9 @@ export class HiPSProperties {
         formats.some((fmt) => !VALID_FORMATS.has(fmt as HiPSTileFormat))
       ) {
         invalid.push(`hips_tile_format=${formatValue}`)
+      }
+      if (formats.includes('jpg')) {
+        warnings.push('hips_tile_format contains jpg alias; prefer jpeg')
       }
     }
 
@@ -131,12 +137,55 @@ export class HiPSProperties {
     const tileWidthValue = Number(this.get('hips_tile_width'))
     if (this.has('hips_tile_width') && (!Number.isInteger(tileWidthValue) || tileWidthValue <= 0)) {
       invalid.push(`hips_tile_width=${this.get('hips_tile_width')}`)
+    } else if (
+      this.has('hips_tile_width') &&
+      Number.isInteger(tileWidthValue) &&
+      (tileWidthValue & (tileWidthValue - 1)) !== 0
+    ) {
+      warnings.push(`hips_tile_width=${tileWidthValue} is not a power of two`)
+    }
+
+    const minOrderRaw = this.get('hips_order_min')
+    if (minOrderRaw !== undefined) {
+      const minOrderValue = Number(minOrderRaw)
+      if (!Number.isInteger(minOrderValue) || minOrderValue < 0) {
+        invalid.push(`hips_order_min=${minOrderRaw}`)
+      } else if (Number.isInteger(orderValue) && minOrderValue > orderValue) {
+        invalid.push(`hips_order_min=${minOrderRaw} exceeds hips_order=${orderValue}`)
+      }
+    }
+
+    const versionValue = this.get('hips_version')
+    if (versionValue && !/^\d+(\.\d+){0,2}$/u.test(versionValue)) {
+      warnings.push(`hips_version=${versionValue} is not in expected numeric dotted form`)
+    }
+
+    if (dataproduct === 'cube') {
+      for (const key of CUBE_REQUIRED_KEYS) {
+        if (!this.has(key)) missing.push(key)
+      }
+      const depth = Number(this.get('hips_cube_depth'))
+      if (this.has('hips_cube_depth') && (!Number.isInteger(depth) || depth <= 0)) {
+        invalid.push(`hips_cube_depth=${this.get('hips_cube_depth')}`)
+      }
+      const firstFrame = Number(this.get('hips_cube_firstframe'))
+      if (this.has('hips_cube_firstframe') && (!Number.isInteger(firstFrame) || firstFrame < 0)) {
+        invalid.push(`hips_cube_firstframe=${this.get('hips_cube_firstframe')}`)
+      }
+    } else {
+      if (this.has('hips_cube_depth')) {
+        warnings.push('hips_cube_depth is set but dataproduct_type is not cube')
+      }
+      if (this.has('hips_cube_firstframe')) {
+        warnings.push('hips_cube_firstframe is set but dataproduct_type is not cube')
+      }
     }
 
     return {
       ok: missing.length === 0 && invalid.length === 0,
       missing: [...missing],
       invalid,
+      warnings,
     }
   }
 

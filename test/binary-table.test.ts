@@ -358,6 +358,17 @@ describe('BinaryTable', () => {
       const rows = (await genericTable.getRows(0, 1)) as Record<string, unknown>[]
       expect(Array.from(rows[0]!['ARR'] as Uint8Array)).toEqual([99])
 
+      const genericWithMax = makeBinaryTableBuffer(
+        [{ name: 'ARR_MAX', form: '1PB(63)' }],
+        8,
+        row,
+        1,
+        heap,
+      )
+      const genericWithMaxTable = new BinaryTable(genericWithMax.header, genericWithMax.data)
+      const rowsWithMax = (await genericWithMaxTable.getRows(0, 1)) as Record<string, unknown>[]
+      expect(Array.from(rowsWithMax[0]!['ARR_MAX'] as Uint8Array)).toEqual([99])
+
       const gzip = makeBinaryTableBuffer([{ name: 'GZIP_COMPRESSED_DATA', form: '1PB' }], 8, row, 0)
       const gzipTable = new BinaryTable(gzip.header, gzip.data)
       await expect(gzipTable.getRows(0, 1)).rejects.toThrow(

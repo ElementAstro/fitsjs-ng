@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import * as nodeZlib from 'node:zlib'
 import {
   DefaultXISFCodecProvider,
   decodeCompressedBlock,
@@ -9,14 +10,16 @@ import {
 import { XISFCompressionError } from '../src/xisf-errors'
 
 describe('xisf-codec', () => {
-  it('supports zlib codecs and rejects unsupported ones', () => {
+  it('supports zlib/lz4/zstd codecs and rejects unknown ones', () => {
     expect(DefaultXISFCodecProvider.supports('zlib')).toBe(true)
     expect(DefaultXISFCodecProvider.supports('zlib+sh')).toBe(true)
-    expect(DefaultXISFCodecProvider.supports('lz4')).toBe(false)
-    expect(() => DefaultXISFCodecProvider.compress('lz4', new Uint8Array([1]))).toThrow(
+    expect(DefaultXISFCodecProvider.supports('lz4')).toBe(true)
+    expect(DefaultXISFCodecProvider.supports('lz4hc')).toBe(true)
+    expect(DefaultXISFCodecProvider.supports('zstd')).toBe(true)
+    expect(() => DefaultXISFCodecProvider.compress('unknown', new Uint8Array([1]))).toThrow(
       XISFCompressionError,
     )
-    expect(() => DefaultXISFCodecProvider.decompress('lz4', new Uint8Array([1]))).toThrow(
+    expect(() => DefaultXISFCodecProvider.decompress('unknown', new Uint8Array([1]))).toThrow(
       XISFCompressionError,
     )
   })
@@ -52,6 +55,28 @@ describe('xisf-codec', () => {
     )
     expect(Array.from(shuffledDecoded)).toEqual(Array.from(payload))
     expect(shuffled.spec.itemSize).toBe(2)
+  })
+
+  it('encodes and decodes lz4 blocks, and supports zstd decompression', () => {
+    const payload = Uint8Array.from({ length: 256 }, (_, i) => i & 0xff)
+    const lz4 = encodeCompressedBlock(payload, 'lz4', DefaultXISFCodecProvider, 1)
+    const restoredLz4 = decodeCompressedBlock(lz4.data, lz4.spec, DefaultXISFCodecProvider)
+    expect(Array.from(restoredLz4)).toEqual(Array.from(payload))
+
+    const zstdCompressSync = (nodeZlib as { zstdCompressSync?: (src: Buffer) => Buffer })
+      .zstdCompressSync
+    if (zstdCompressSync) {
+      const zstdCompressed = new Uint8Array(zstdCompressSync(Buffer.from(payload)))
+      const restoredZstd = decodeCompressedBlock(
+        zstdCompressed,
+        { codec: 'zstd', uncompressedSize: payload.length },
+        DefaultXISFCodecProvider,
+      )
+      expect(Array.from(restoredZstd)).toEqual(Array.from(payload))
+    }
+    expect(() => DefaultXISFCodecProvider.compress('zstd', payload, 3)).toThrow(
+      'decompression only',
+    )
   })
 
   it('validates shuffle itemSize and subblock definitions during decode', () => {

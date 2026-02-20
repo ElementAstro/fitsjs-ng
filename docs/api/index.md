@@ -118,6 +118,47 @@ For signed documents, checksum verification is forced for attachment/path/url bl
 
 ---
 
+## SER
+
+SER support includes reading, writing, and conversion:
+
+```ts
+class SER {
+  static fromArrayBuffer(buffer: ArrayBuffer, options?: SERReadOptions): SER
+  static fromBlob(blob: Blob, options?: SERReadOptions): Promise<SER>
+  static fromURL(
+    url: string,
+    options?: SERReadOptions & { requestInit?: RequestInit },
+  ): Promise<SER>
+  static fromNodeBuffer(buffer: NodeBufferLike, options?: SERReadOptions): SER
+
+  getHeader(): SERHeader
+  getFrameCount(): number
+  getFrame(index: number, options?: { asRGB?: boolean }): SERFrameData
+  getFrameRGB(index: number): Uint8Array | Uint16Array
+  getFrames(startFrame: number, count: number, options?: { asRGB?: boolean }): SERFrameData[]
+  getTimestamp(index: number): bigint | undefined
+  getTimestampDate(index: number): Date | undefined
+  getDurationTicks(): bigint | undefined
+  getDurationSeconds(): number | undefined
+  getEstimatedFPS(): number | undefined
+  async *[Symbol.asyncIterator](): AsyncIterableIterator<SERFrameData>
+}
+
+function parseSERBuffer(buffer: ArrayBuffer, options?: SERReadOptions): SERParsedFile
+function parseSERBlob(blob: Blob, options?: SERReadOptions): Promise<SERParsedFile>
+function writeSER(input: SERWriteInput, options?: SERWriteOptions): ArrayBuffer
+
+// Conversion options:
+// convertSerToFits(..., { layout?: 'cube' | 'multi-hdu' })
+// convertFitsToSer(..., { sourceLayout?: 'auto' | 'cube' | 'multi-hdu' })
+// convertXisfToSer(..., { imageIndex?: number })
+```
+
+For full SER API details, see [`/api/ser`](/api/ser).
+
+---
+
 ## BinaryTable
 
 Reads FITS binary table extensions (BINTABLE).

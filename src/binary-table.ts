@@ -63,7 +63,7 @@ export class BinaryTable extends Tabular {
   }
 
   protected setAccessors(header: Header): void {
-    const pattern = /(\d*)([PQ]*)([LXBIJKAEDCM])$/
+    const pattern = /(\d*)([PQ]?)([LXBIJKAEDCM])(?:\(\d+\))?$/
 
     for (let i = 1; i <= this.cols; i++) {
       const form = header.getString(`TFORM${i}`)

@@ -174,9 +174,6 @@ export const VerifyFns: Record<
     if (!['GZIP_1', 'RICE_1', 'PLIO_1', 'HCOMPRESS_1'].includes(v)) {
       throw new HeaderError(`ZCMPTYPE value ${v} is not permitted`)
     }
-    if (!['RICE_1'].includes(v)) {
-      throw new HeaderError(`Compress type ${v} is not yet implemented`)
-    }
     return v
   },
 

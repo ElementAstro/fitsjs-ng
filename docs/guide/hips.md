@@ -71,3 +71,21 @@ const cutoutFits = await convertHiPSToFITS('https://alasky.cds.unistra.fr/DSS/DS
 - `local`: local reprojection only
 - `remote`: hips2fits only (requires `hipsId`)
 - `auto`: local first, then remote fallback
+
+## XISF <-> HiPS
+
+```ts
+import { NodeFSTarget, convertXisfToHiPS, convertHiPSToXisf } from 'fitsjs-ng'
+
+await convertXisfToHiPS(await fetch('/image.xisf').then((r) => r.arrayBuffer()), {
+  output: new NodeFSTarget('./out/hips-from-xisf'),
+  imageIndex: 0,
+  title: 'XISF Survey',
+  creatorDid: 'ivo://example/xisf',
+  hipsOrder: 6,
+})
+
+const xisfCutout = await convertHiPSToXisf('./out/hips-from-xisf', {
+  cutout: { width: 512, height: 512, ra: 83.63, dec: 22.01, fov: 1.2 },
+})
+```

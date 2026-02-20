@@ -59,6 +59,28 @@ Remote options:
 - `hipsId`
 - `endpoint`, `endpointFallback`, `timeoutMs`
 
+### `convertXisfToHiPS(input, options)`
+
+Converts one XISF image into a HiPS dataset.
+
+Additional options on top of `convertFitsToHiPS`:
+
+- `imageIndex?: number` (default `0`)
+- `xisfReadOptions?: XISFReadOptions`
+
+Notes:
+
+- complex sample formats (`Complex32`, `Complex64`) are rejected for HiPS conversion.
+- multi-image XISF units can be exported deterministically by selecting `imageIndex`.
+
+### `convertHiPSToXisf(input, options)`
+
+Converts HiPS exports into XISF.
+
+- accepts the same `tile` / `map` / `cutout` options as `convertHiPSToFITS`
+- forwards `distributed`, `writeOptions`, and `conversionOptions` to XISF output
+- map-mode exports are preserved via FITS HDU metadata when no direct image plane exists
+
 ## Storage Targets
 
 ### `NodeFSTarget`
@@ -82,9 +104,11 @@ Checks:
 - required `properties` fields
 - field validity (`hips_frame`, `hips_tile_format`, etc.)
 - optional file presence (`Allsky`, `Moc.fits`)
-- local path naming sanity for tiles
+- local path naming sanity for tiles, order/format consistency checks
+- cube-specific naming and metadata consistency checks
 
 Notes:
 
 - missing/invalid required `properties` entries are reported as `error`
+- property advisories (e.g. non power-of-two tile width) are reported as `warning`
 - for cube datasets, non-FITS Allsky is intentionally not generated; `properties` includes `hips_allsky_restriction`

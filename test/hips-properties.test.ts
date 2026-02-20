@@ -41,4 +41,24 @@ hips_tile_format = fits png
     expect(report.ok).toBe(false)
     expect(report.missing).toContain('creator_did')
   })
+
+  it('validates cube-specific keys and order constraints', () => {
+    const props = HiPSProperties.fromObject({
+      creator_did: 'ivo://example/cube',
+      obs_title: 'Cube Survey',
+      dataproduct_type: 'cube',
+      hips_version: '1.4',
+      hips_frame: 'equatorial',
+      hips_order: 3,
+      hips_order_min: 4,
+      hips_tile_width: 500,
+      hips_tile_format: 'fits',
+    })
+
+    const report = props.validate()
+    expect(report.ok).toBe(false)
+    expect(report.missing).toContain('hips_cube_depth')
+    expect(report.invalid.some((item) => item.includes('hips_order_min'))).toBe(true)
+    expect(report.warnings.some((item) => item.includes('power of two'))).toBe(true)
+  })
 })
