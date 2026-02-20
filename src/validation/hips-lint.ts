@@ -1,6 +1,6 @@
-import { parseHiPSTilePath } from '../hips-path'
+import { parseHiPSTilePath } from '../hips/hips-path'
 import { HiPS } from '../hips'
-import type { HiPSInput } from '../hips-types'
+import type { HiPSInput } from '../hips/hips-types'
 
 export interface HiPSLintIssue {
   level: 'error' | 'warning'

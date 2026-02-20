@@ -2,8 +2,8 @@ import './_setup'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { SER } from '../src/ser'
-import { convertSerToFits, convertSerToXisf, convertFitsToSer } from '../src/ser-convert'
-import { writeSER } from '../src/ser-writer'
+import { convertSerToFits, convertSerToXisf, convertFitsToSer } from '../src/ser/ser-convert'
+import { writeSER } from '../src/ser/ser-writer'
 
 const OUT_DIR = resolve(process.cwd(), 'demo', 'out')
 

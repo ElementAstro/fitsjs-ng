@@ -7,13 +7,13 @@
 
 import './_setup'
 import { FITS } from '../src/fits'
-import { Image as FITSImage } from '../src/image'
-import { Table as FITSTable } from '../src/table'
-import { BLOCK_LENGTH, LINE_WIDTH } from '../src/constants'
+import { Image as FITSImage } from '../src/fits/image'
+import { Table as FITSTable } from '../src/fits/table'
+import { BLOCK_LENGTH, LINE_WIDTH } from '../src/core/constants'
 import { XISF } from '../src/xisf'
-import { XISFWriter } from '../src/xisf-writer'
-import { convertFitsToXisf, convertXisfToFits } from '../src/convert'
-import type { XISFUnit } from '../src/xisf-types'
+import { XISFWriter } from '../src/xisf/xisf-writer'
+import { convertFitsToXisf, convertXisfToFits } from '../src/xisf/convert'
+import type { XISFUnit } from '../src/xisf/xisf-types'
 
 // ─── FITS Builder Helpers ────────────────────────────────────────────────────
 

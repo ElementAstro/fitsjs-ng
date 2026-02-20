@@ -1,44 +1,44 @@
 // Main entry point
 export { FITS } from './fits'
 export { XISF } from './xisf'
-export { XISFWriter } from './xisf-writer'
-export { convertXisfToFits, convertFitsToXisf } from './convert'
+export { XISFWriter } from './xisf/xisf-writer'
+export { convertXisfToFits, convertFitsToXisf } from './xisf/convert'
 export { SER } from './ser'
-export { parseSERBuffer, parseSERBlob } from './ser-parser'
-export { writeSER } from './ser-writer'
+export { parseSERBuffer, parseSERBlob } from './ser/ser-parser'
+export { writeSER } from './ser/ser-writer'
 export {
   convertSerToFits,
   convertFitsToSer,
   convertSerToXisf,
   convertXisfToSer,
-} from './ser-convert'
+} from './ser/ser-convert'
 
 // Core classes
-export { Header } from './header'
-export { HDU } from './hdu'
-export { DataUnit } from './data-unit'
+export { Header } from './fits/header'
+export { HDU } from './fits/hdu'
+export { DataUnit } from './fits/data-unit'
 
 // Data unit types
-export { Image } from './image'
-export { Table } from './table'
-export { BinaryTable } from './binary-table'
+export { Image } from './fits/image'
+export { Table } from './fits/table'
+export { BinaryTable } from './fits/binary-table'
 export {
   CompressedImage,
   getCompressedImageDecoderProvider,
   setCompressedImageDecoderProvider,
-} from './compressed-image'
+} from './fits/compressed-image'
 
 // Utilities
-export { getExtent, getPixel } from './image-utils'
-export { riceDecompress, RiceSetup } from './decompress'
-export { parseBuffer, parseBlob } from './parser'
-export { writeFITS, createImageHDU, createImageBytesFromArray } from './fits-writer'
+export { getExtent, getPixel } from './fits/image-utils'
+export { riceDecompress, RiceSetup } from './fits/decompress'
+export { parseBuffer, parseBlob } from './fits/parser'
+export { writeFITS, createImageHDU, createImageBytesFromArray } from './fits/fits-writer'
 export { HiPS } from './hips'
-export { HiPSProperties } from './hips-properties'
-export { convertFitsToHiPS } from './hips-build'
-export { convertHiPSToFITS } from './hips-export'
-export { convertXisfToHiPS, convertHiPSToXisf } from './hips-xisf-convert'
-export { NodeFSTarget, BrowserZipTarget, BrowserOPFSTarget } from './storage-target'
+export { HiPSProperties } from './hips/hips-properties'
+export { convertFitsToHiPS } from './hips/hips-build'
+export { convertHiPSToFITS } from './hips/hips-export'
+export { convertXisfToHiPS, convertHiPSToXisf } from './hips/hips-xisf-convert'
+export { NodeFSTarget, BrowserZipTarget, BrowserOPFSTarget } from './hips/storage-target'
 export { lintHiPS } from './validation/hips-lint'
 
 // Types
@@ -62,12 +62,12 @@ export type {
   WarningCallback,
   TableRow,
   AlgorithmParameters,
-} from './types'
+} from './core/types'
 export type {
   CompressedImageDecodeContext,
   CompressedImageDecoderProvider,
   CompressedImageOptions,
-} from './compressed-image'
+} from './fits/compressed-image'
 export type {
   SERColorId,
   SERByteOrder,
@@ -88,7 +88,7 @@ export type {
   FitsToSerOptions,
   SerToXisfOptions,
   XisfToSerOptions,
-} from './ser-types'
+} from './ser/ser-types'
 export type {
   HiPSFrame,
   HiPSTileFormat,
@@ -112,7 +112,7 @@ export type {
   ConvertXisfToHiPSOptions,
   ConvertHiPSToXisfOptions,
   HiPSInput,
-} from './hips-types'
+} from './hips/hips-types'
 
 export type {
   XISFSampleFormat,
@@ -145,7 +145,7 @@ export type {
   XISFResourceContext,
   XISFResourceResolver,
   ConversionOptions,
-} from './xisf-types'
+} from './xisf/xisf-types'
 
 // Constants
 export {
@@ -157,11 +157,11 @@ export {
   ZERO_VALUE,
   N_RANDOM,
   VERSION,
-} from './constants'
+} from './core/constants'
 
 // Errors
-export { FITSError, HeaderError, DataError, DecompressionError } from './errors'
-export { SERError, SERParseError, SERValidationError, SERConversionError } from './ser-errors'
+export { FITSError, HeaderError, DataError, DecompressionError } from './core/errors'
+export { SERError, SERParseError, SERValidationError, SERConversionError } from './ser/ser-errors'
 export {
   XISFError,
   XISFParseError,
@@ -171,4 +171,4 @@ export {
   XISFChecksumError,
   XISFSignatureError,
   XISFConversionError,
-} from './xisf-errors'
+} from './xisf/xisf-errors'
