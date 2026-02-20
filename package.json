@@ -96,7 +96,7 @@
     "lz4js": "^0.2.0"
   },
   "devDependencies": {
-    "@commitlint/cli": "^20.4.1",
+    "@commitlint/cli": "^20.4.2",
     "@commitlint/config-conventional": "^20.4.1",
     "@eslint/js": "^9.0.0",
     "@size-limit/preset-small-lib": "^11.2.0",
