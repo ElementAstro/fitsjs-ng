@@ -1,6 +1,7 @@
 import { parseHiPSTilePath } from '../hips/hips-path'
 import { HiPS } from '../hips'
 import type { HiPSInput } from '../hips/hips-types'
+import { importNodeModule, isNodeRuntime } from '../core/runtime'
 
 export interface HiPSLintIssue {
   level: 'error' | 'warning'
@@ -18,10 +19,41 @@ function isUrl(value: string): boolean {
   return /^https?:\/\//iu.test(value)
 }
 
+interface NodeFsLike {
+  readdir(
+    path: string,
+    options: { withFileTypes: true },
+  ): Promise<Array<{ isDirectory(): boolean; name: string }>>
+  access(path: string): Promise<void>
+}
+
+interface NodePathLike {
+  join(...paths: string[]): string
+  relative(from: string, to: string): string
+}
+
+async function ensureNodeModules(context: string): Promise<{
+  fs: NodeFsLike
+  pathApi: NodePathLike
+}> {
+  const [fs, pathApi] = await Promise.all([
+    importNodeModule<NodeFsLike>(
+      'fs/promises',
+      context,
+      'Use URL-based HiPS linting or run lintHiPS local-path checks in Node.js.',
+    ),
+    importNodeModule<NodePathLike>(
+      'path',
+      context,
+      'Use URL-based HiPS linting or run lintHiPS local-path checks in Node.js.',
+    ),
+  ])
+  return { fs, pathApi }
+}
+
 async function lintLocalStructure(root: string): Promise<HiPSLintIssue[]> {
   const issues: HiPSLintIssue[] = []
-  const fs = await import('node:fs/promises')
-  const pathApi = await import('node:path')
+  const { fs, pathApi } = await ensureNodeModules('HiPS local structure lint')
 
   const walk = async (dir: string): Promise<void> => {
     const entries = await fs.readdir(dir, { withFileTypes: true })
@@ -62,8 +94,7 @@ async function lintLocalStructureWithProperties(
   properties: Awaited<ReturnType<HiPS['getProperties']>>,
 ): Promise<HiPSLintIssue[]> {
   const issues: HiPSLintIssue[] = []
-  const fs = await import('node:fs/promises')
-  const pathApi = await import('node:path')
+  const { fs, pathApi } = await ensureNodeModules('HiPS local structure lint')
   const maxOrderRaw = properties.get('hips_order')
   const maxOrder = maxOrderRaw !== undefined ? Number(maxOrderRaw) : undefined
   const dataproduct = properties.get('dataproduct_type')
@@ -220,8 +251,7 @@ export async function lintHiPS(source: HiPSInput): Promise<HiPSLintReport> {
       hasMoc = await source.exists('Moc.fits')
     } else if (typeof source === 'string' && !isUrl(source)) {
       try {
-        const fs = await import('node:fs/promises')
-        const pathApi = await import('node:path')
+        const { fs, pathApi } = await ensureNodeModules('HiPS local Moc.fits check')
         await fs.access(pathApi.join(source, 'Moc.fits'))
         hasMoc = true
       } catch {
@@ -254,7 +284,7 @@ export async function lintHiPS(source: HiPSInput): Promise<HiPSLintReport> {
     })
   }
 
-  if (typeof source === 'string' && !isUrl(source)) {
+  if (typeof source === 'string' && !isUrl(source) && isNodeRuntime()) {
     try {
       const properties = await new HiPS(source).getProperties()
       issues.push(...(await lintLocalStructureWithProperties(source, properties)))

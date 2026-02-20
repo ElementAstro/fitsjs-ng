@@ -40,15 +40,22 @@ describe('xisf-resolver', () => {
     }
   })
 
-  it('rejects path-based resolution in browser-like environments', async () => {
-    const originalWindow = (globalThis as { window?: unknown }).window
-    ;(globalThis as { window?: unknown }).window = {}
+  it('rejects path-based resolution in non-node runtimes', async () => {
+    const originalNavigatorDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'navigator')
+    Object.defineProperty(globalThis, 'navigator', {
+      value: { product: 'ReactNative' },
+      configurable: true,
+    })
     try {
-      await expect(DefaultXISFResourceResolver.resolvePath('/tmp/x')).rejects.toBeInstanceOf(
-        XISFResourceError,
+      await expect(DefaultXISFResourceResolver.resolvePath('/tmp/x')).rejects.toThrow(
+        'custom resourceResolver.resolvePath',
       )
     } finally {
-      ;(globalThis as { window?: unknown }).window = originalWindow
+      if (originalNavigatorDescriptor) {
+        Object.defineProperty(globalThis, 'navigator', originalNavigatorDescriptor)
+      } else {
+        delete (globalThis as { navigator?: unknown }).navigator
+      }
     }
   })
 

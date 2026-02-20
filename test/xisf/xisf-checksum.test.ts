@@ -51,6 +51,26 @@ describe('xisf-checksum', () => {
     }
   })
 
+  it('fails strictly without subtle crypto in non-node runtimes', async () => {
+    const originalCrypto = globalThis.crypto
+    const originalNavigatorDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'navigator')
+    vi.stubGlobal('crypto', undefined)
+    Object.defineProperty(globalThis, 'navigator', {
+      value: { product: 'ReactNative' },
+      configurable: true,
+    })
+    try {
+      await expect(computeChecksum(payload, 'sha-256')).rejects.toThrow('requires Node.js runtime')
+    } finally {
+      vi.stubGlobal('crypto', originalCrypto)
+      if (originalNavigatorDescriptor) {
+        Object.defineProperty(globalThis, 'navigator', originalNavigatorDescriptor)
+      } else {
+        delete (globalThis as { navigator?: unknown }).navigator
+      }
+    }
+  })
+
   it('rejects unsupported checksum algorithms', async () => {
     await expect(computeChecksum(payload, 'crc32' as never)).rejects.toBeInstanceOf(
       XISFChecksumError,

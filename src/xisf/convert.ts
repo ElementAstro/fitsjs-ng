@@ -9,6 +9,7 @@ import {
   writeFITS,
   type FITSWriteHDU,
 } from '../fits/fits-writer'
+import { base64ToBytes, bytesToBase64 } from '../core/base64'
 import { XISFConversionError } from './xisf-errors'
 import type { ConversionOptions, XISFImage, XISFUnit, XISFWriteOptions } from './xisf-types'
 
@@ -190,31 +191,11 @@ function normalizeInputToArrayBuffer(
 }
 
 async function encodeBase64(bytes: Uint8Array): Promise<string> {
-  if (typeof btoa === 'function') {
-    let bin = ''
-    for (let i = 0; i < bytes.length; i++) {
-      bin += String.fromCharCode(bytes[i]!)
-    }
-    return btoa(bin)
-  }
-  const mod = (await import('node:buffer')) as {
-    Buffer: { from(input: Uint8Array): { toString(encoding: 'base64'): string } }
-  }
-  return mod.Buffer.from(bytes).toString('base64')
+  return bytesToBase64(bytes)
 }
 
 async function decodeBase64(payload: string): Promise<Uint8Array> {
-  if (typeof atob === 'function') {
-    const normalized = payload.replace(/\s+/g, '')
-    const bin = atob(normalized)
-    const out = new Uint8Array(bin.length)
-    for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i)
-    return out
-  }
-  const mod = (await import('node:buffer')) as {
-    Buffer: { from(input: string, encoding: 'base64'): Uint8Array }
-  }
-  return new Uint8Array(mod.Buffer.from(payload, 'base64'))
+  return base64ToBytes(payload)
 }
 
 function buildXISFMetaJSON(xisf: XISF): string {

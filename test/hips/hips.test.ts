@@ -123,4 +123,21 @@ describe('hips', () => {
     const hips = new HiPS(123 as never)
     await expect(hips.getProperties()).rejects.toThrow('Unsupported HiPS source')
   })
+
+  it('throws actionable errors for local-path access in React Native-like runtimes', async () => {
+    const originalNavigatorDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'navigator')
+    Object.defineProperty(globalThis, 'navigator', {
+      value: { product: 'ReactNative' },
+      configurable: true,
+    })
+    try {
+      await expect(HiPS.open('/tmp/fitsjs-local')).rejects.toThrow('requires Node.js runtime')
+    } finally {
+      if (originalNavigatorDescriptor) {
+        Object.defineProperty(globalThis, 'navigator', originalNavigatorDescriptor)
+      } else {
+        delete (globalThis as { navigator?: unknown }).navigator
+      }
+    }
+  })
 })

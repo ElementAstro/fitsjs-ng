@@ -1,6 +1,7 @@
 import { hipsAllskyPath, hipsTilePath } from './hips-path'
 import { HiPSProperties } from './hips-properties'
 import { decodeHiPSTile } from './hips-tile'
+import { importNodeModule } from '../core/runtime'
 import type {
   HiPSExportTarget,
   HiPSInput,
@@ -13,11 +14,31 @@ function isUrlLike(value: string): boolean {
   return /^https?:\/\//iu.test(value)
 }
 
+interface NodeFsLike {
+  readFile(path: string): Promise<Uint8Array>
+  readFile(path: string, encoding: 'utf8'): Promise<string>
+}
+
+interface NodePathLike {
+  join(...paths: string[]): string
+}
+
 async function ensureNodeModules(): Promise<{
-  fs: typeof import('node:fs/promises')
-  path: typeof import('node:path')
+  fs: NodeFsLike
+  path: NodePathLike
 }> {
-  const [fs, path] = await Promise.all([import('node:fs/promises'), import('node:path')])
+  const [fs, path] = await Promise.all([
+    importNodeModule<NodeFsLike>(
+      'fs/promises',
+      'HiPS local-path access',
+      'Use URL-based HiPS input or provide a custom HiPSExportTarget in browser/React Native.',
+    ),
+    importNodeModule<NodePathLike>(
+      'path',
+      'HiPS local-path access',
+      'Use URL-based HiPS input or provide a custom HiPSExportTarget in browser/React Native.',
+    ),
+  ])
   return { fs, path }
 }
 

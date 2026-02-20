@@ -3,6 +3,7 @@ import { buildXISBFile } from './xisb-index'
 import { createDocument, serializeXML } from './xisf-xml'
 import { DefaultXISFCodecProvider, encodeCompressedBlock } from './xisf-codec'
 import { computeChecksum } from './xisf-checksum'
+import { bytesToBase64 } from '../core/base64'
 import type { XISFImage, XISFProperty, XISFTable, XISFUnit, XISFWriteOptions } from './xisf-types'
 import { XISFValidationError } from './xisf-errors'
 
@@ -586,20 +587,13 @@ function addImageChildren(
 }
 
 function encodeBase64(bytes: Uint8Array): string {
-  if (typeof btoa === 'function') {
-    let s = ''
-    for (let i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]!)
-    return btoa(s)
+  try {
+    return bytesToBase64(bytes)
+  } catch (error) {
+    throw new XISFValidationError(
+      `No base64 encoder available in this environment: ${(error as Error).message}`,
+    )
   }
-
-  const anyGlobal = globalThis as {
-    Buffer?: { from(data: Uint8Array): { toString(encoding: 'base64'): string } }
-  }
-  if (anyGlobal.Buffer) {
-    return anyGlobal.Buffer.from(bytes).toString('base64')
-  }
-
-  throw new XISFValidationError('No base64 encoder available in this environment')
 }
 
 async function assignAttachmentPositions(

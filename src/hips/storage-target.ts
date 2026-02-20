@@ -1,4 +1,5 @@
 import { zipSync } from 'fflate'
+import { importNodeModule } from '../core/runtime'
 import type { HiPSExportTarget } from './hips-types'
 
 function toUint8Array(data: Uint8Array | ArrayBuffer): Uint8Array {
@@ -10,10 +11,33 @@ function normalizePath(path: string): string {
 }
 
 async function ensureNodeModules(): Promise<{
-  fs: typeof import('node:fs/promises')
-  path: typeof import('node:path')
+  fs: {
+    mkdir(path: string, options?: { recursive?: boolean }): Promise<void>
+    writeFile(path: string, data: Uint8Array | string, encoding?: 'utf8'): Promise<void>
+    readFile(path: string): Promise<Uint8Array>
+    readFile(path: string, encoding: 'utf8'): Promise<string>
+    access(path: string): Promise<void>
+  }
+  path: { join(...paths: string[]): string; dirname(path: string): string }
 }> {
-  const [fs, path] = await Promise.all([import('node:fs/promises'), import('node:path')])
+  const [fs, path] = await Promise.all([
+    importNodeModule<{
+      mkdir(path: string, options?: { recursive?: boolean }): Promise<void>
+      writeFile(path: string, data: Uint8Array | string, encoding?: 'utf8'): Promise<void>
+      readFile(path: string): Promise<Uint8Array>
+      readFile(path: string, encoding: 'utf8'): Promise<string>
+      access(path: string): Promise<void>
+    }>(
+      'fs/promises',
+      'NodeFSTarget filesystem access',
+      'Use BrowserZipTarget or a custom HiPSExportTarget in browser/React Native.',
+    ),
+    importNodeModule<{ join(...paths: string[]): string; dirname(path: string): string }>(
+      'path',
+      'NodeFSTarget filesystem access',
+      'Use BrowserZipTarget or a custom HiPSExportTarget in browser/React Native.',
+    ),
+  ])
   return { fs, path }
 }
 

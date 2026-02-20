@@ -1,4 +1,10 @@
 import type { XISFSignatureResult } from './xisf-types'
+import {
+  base64ToBytes,
+  bytesToBase64,
+  normalizeBase64 as normalizeBase64Payload,
+} from '../core/base64'
+import { importNodeModule } from '../core/runtime'
 
 const DSIG_NS = 'http://www.w3.org/2000/09/xmldsig#'
 const C14N_10 = 'http://www.w3.org/TR/2001/REC-xml-c14n-20010315'
@@ -84,35 +90,16 @@ export function hasDetachedSignature(doc: Document): boolean {
 }
 
 function normalizeBase64(input: string): string {
-  return input.replace(/\s+/gu, '')
+  return normalizeBase64Payload(input)
 }
 
 function toBase64Url(bytes: Uint8Array): string {
-  let base64: string
-  if (typeof btoa === 'function') {
-    let text = ''
-    for (let i = 0; i < bytes.length; i++) text += String.fromCharCode(bytes[i]!)
-    base64 = btoa(text)
-  } else {
-    const nodeBuffer = Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength)
-    base64 = nodeBuffer.toString('base64')
-  }
+  const base64 = bytesToBase64(bytes)
   return base64.replace(/\+/gu, '-').replace(/\//gu, '_').replace(/=+$/gu, '')
 }
 
 async function decodeBase64(input: string): Promise<Uint8Array> {
-  const payload = normalizeBase64(input)
-  if (typeof atob === 'function') {
-    const text = atob(payload)
-    const out = new Uint8Array(text.length)
-    for (let i = 0; i < text.length; i++) out[i] = text.charCodeAt(i)
-    return out
-  }
-
-  const mod = (await import('node:buffer')) as {
-    Buffer: { from(input: string, encoding: 'base64'): Uint8Array }
-  }
-  return new Uint8Array(mod.Buffer.from(payload, 'base64'))
+  return base64ToBytes(normalizeBase64(input))
 }
 
 function encodeUtf8(text: string): Uint8Array {
@@ -434,9 +421,13 @@ async function computeDigest(algorithmUri: string, data: Uint8Array): Promise<Ui
     return new Uint8Array(digest)
   }
 
-  const cryptoModule = (await import('node:crypto')) as {
+  const cryptoModule = await importNodeModule<{
     createHash(name: string): { update(data: Uint8Array): unknown; digest(): Uint8Array }
-  }
+  }>(
+    'crypto',
+    `XISF signature digest ${subtleAlgorithm} without WebCrypto`,
+    'Enable WebCrypto or run in Node.js for detached-signature verification.',
+  )
   const hashName = subtleAlgorithm.toLowerCase().replace('-', '')
   const hash = cryptoModule.createHash(hashName)
   hash.update(data)
@@ -477,10 +468,14 @@ function trimBigEndianInteger(bytes: Uint8Array): Uint8Array {
 }
 
 async function loadNodeCryptoKeyFromKeyInfo(keyInfo: Element): Promise<unknown> {
-  const cryptoModule = (await import('node:crypto')) as {
+  const cryptoModule = await importNodeModule<{
     X509Certificate: new (buffer: Uint8Array) => { publicKey: unknown }
     createPublicKey(input: { key: JsonWebKey; format: 'jwk' }): unknown
-  }
+  }>(
+    'crypto',
+    'XISF signature key loading from KeyInfo',
+    'Enable WebCrypto-compatible KeyInfo or run in Node.js for detached-signature verification.',
+  )
 
   const x509 = getFirstChildByLocalName(keyInfo, 'X509Data', DSIG_NS)
   if (x509) {
@@ -602,7 +597,7 @@ async function verifySignatureValue(
   key: LoadedPublicKey,
 ): Promise<boolean> {
   if (key.kind === 'node') {
-    const cryptoModule = (await import('node:crypto')) as {
+    const cryptoModule = await importNodeModule<{
       createVerify(name: string): {
         update(data: Uint8Array): unknown
         end(): unknown
@@ -613,7 +608,11 @@ async function verifySignatureValue(
         ): boolean
       }
       constants: { RSA_PKCS1_PSS_PADDING: number }
-    }
+    }>(
+      'crypto',
+      `XISF detached signature verification (${method.name})`,
+      'Enable WebCrypto or run in Node.js for detached-signature verification.',
+    )
     const verifier = cryptoModule.createVerify(hashNameForNode(method.hash))
     verifier.update(signedInfoBytes)
     verifier.end()

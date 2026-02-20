@@ -13,6 +13,7 @@ import { parseXISFLocation, resolveHeaderRelativePath } from './xisf-location'
 import { parseXISBIndex, sliceXISBBlock } from './xisb-index'
 import { verifyChecksum } from './xisf-checksum'
 import { hasDetachedSignature, verifyDetachedSignature } from './xisf-signature'
+import { base64ToBytes } from '../core/base64'
 import {
   XISFChecksumError,
   XISFParseError,
@@ -54,16 +55,7 @@ function toArrayBuffer(bytes: Uint8Array): ArrayBuffer {
 function decodeInlineData(encoding: 'base64' | 'hex', payload: string): Uint8Array {
   const normalized = payload.replace(/\s+/g, '')
   if (encoding === 'base64') {
-    if (typeof atob === 'function') {
-      const bin = atob(normalized)
-      const out = new Uint8Array(bin.length)
-      for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i)
-      return out
-    }
-    const importer = new Function('p', 'return import(p)') as (p: string) => Promise<unknown>
-    throw new XISFResourceError(
-      `No base64 decoder available. Provide a custom resolver/provider. importer=${String(importer)}`,
-    )
+    return base64ToBytes(normalized)
   }
 
   const bytes = new Uint8Array(normalized.length / 2)
@@ -73,21 +65,8 @@ function decodeInlineData(encoding: 'base64' | 'hex', payload: string): Uint8Arr
   return bytes
 }
 
-async function decodeBase64Fallback(payload: string): Promise<Uint8Array> {
-  const normalized = payload.replace(/\s+/g, '')
-  if (typeof atob === 'function') {
-    const bin = atob(normalized)
-    const out = new Uint8Array(bin.length)
-    for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i)
-    return out
-  }
-
-  const importer = new Function('p', 'return import(p)') as (p: string) => Promise<unknown>
-  const mod = (await importer('node:buffer')) as {
-    Buffer: { from(input: string, encoding: 'base64'): Uint8Array }
-  }
-  const buffer = mod.Buffer.from(normalized, 'base64')
-  return new Uint8Array(buffer)
+function decodeBase64Fallback(payload: string): Uint8Array {
+  return base64ToBytes(payload)
 }
 
 function warn(options: Required<XISFReadOptions>, warning: XISFWarning): void {

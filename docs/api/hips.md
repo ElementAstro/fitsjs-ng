@@ -19,6 +19,11 @@ readAllsky(format?): Promise<Uint8Array>
 - URL (`string | URL`)
 - storage target implementing `HiPSExportTarget`
 
+Runtime notes:
+
+- Local root paths are Node.js-only.
+- Browser/React Native should use URL sources or custom `HiPSExportTarget` objects.
+
 ### `HiPSProperties`
 
 ```ts
@@ -87,6 +92,8 @@ Converts HiPS exports into XISF.
 
 Writes to directory structure on Node.js filesystem.
 
+Node.js-only API. In browser/React Native this throws a runtime error with migration hints.
+
 ### `BrowserZipTarget`
 
 Collects files and creates a ZIP blob/bytes via `finalize()`.
@@ -112,3 +119,4 @@ Notes:
 - missing/invalid required `properties` entries are reported as `error`
 - property advisories (e.g. non power-of-two tile width) are reported as `warning`
 - for cube datasets, non-FITS Allsky is intentionally not generated; `properties` includes `hips_allsky_restriction`
+- local filesystem path linting is Node.js-only; browser/React Native receives actionable runtime errors in the report

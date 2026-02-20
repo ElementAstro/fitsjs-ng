@@ -20,6 +20,25 @@ describe('storage-target', () => {
     }
   })
 
+  it('throws actionable errors for NodeFSTarget in React Native-like runtimes', async () => {
+    const originalNavigatorDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'navigator')
+    Object.defineProperty(globalThis, 'navigator', {
+      value: { product: 'ReactNative' },
+      configurable: true,
+    })
+    try {
+      const target = new NodeFSTarget('/tmp/fitsjs-ng')
+      await expect(target.exists('properties')).rejects.toThrow('requires Node.js runtime')
+      await expect(target.writeText('properties', 'x')).rejects.toThrow('browser/React Native')
+    } finally {
+      if (originalNavigatorDescriptor) {
+        Object.defineProperty(globalThis, 'navigator', originalNavigatorDescriptor)
+      } else {
+        delete (globalThis as { navigator?: unknown }).navigator
+      }
+    }
+  })
+
   it('builds zip archive entries in browser zip target', async () => {
     const target = new BrowserZipTarget()
     await target.writeText('properties', 'hips_version = 1.4\n')

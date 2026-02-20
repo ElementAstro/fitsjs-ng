@@ -1,5 +1,6 @@
 import type { XISFResourceResolver } from './xisf-types'
 import { XISFResourceError } from './xisf-errors'
+import { importNodeModule, isNodeRuntime, runtimeLabel } from '../core/runtime'
 
 function toUint8Array(buffer: ArrayBuffer): Uint8Array {
   return new Uint8Array(buffer)
@@ -7,9 +8,13 @@ function toUint8Array(buffer: ArrayBuffer): Uint8Array {
 
 async function resolveWithNodeFS(path: string): Promise<Uint8Array> {
   try {
-    const fsMod = (await import('node:fs/promises')) as {
+    const fsMod = await importNodeModule<{
       readFile(path: string): Promise<Uint8Array>
-    }
+    }>(
+      'fs/promises',
+      'XISF path(...) resource resolution',
+      'Provide a custom resourceResolver.resolvePath in browser/React Native.',
+    )
     const data = await fsMod.readFile(path)
     return new Uint8Array(data)
   } catch (error) {
@@ -29,9 +34,9 @@ export const DefaultXISFResourceResolver: XISFResourceResolver = {
   },
 
   async resolvePath(path: string): Promise<Uint8Array> {
-    if (typeof window !== 'undefined') {
+    if (!isNodeRuntime()) {
       throw new XISFResourceError(
-        `Path-based distributed XISF access requires a custom resourceResolver in browser environments: ${path}`,
+        `Path-based distributed XISF access requires Node.js or a custom resourceResolver.resolvePath (runtime=${runtimeLabel()}): ${path}`,
       )
     }
     return resolveWithNodeFS(path)

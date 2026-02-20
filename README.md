@@ -20,7 +20,7 @@ Modern TypeScript library for reading and writing [FITS](https://fits.gsfc.nasa.
 - **Compressed Images** — Rice (RICE_1) decompression with subtractive dithering
 - **Multiple HDUs** — Sequential parsing of all Header Data Units
 - **Modern API** — Async/await, TypeScript types, ES modules, tree-shakeable
-- **Universal** — Works in Node.js (18+) and modern browsers
+- **Universal** — Works in Node.js (18+), modern browsers, and React Native (runtime-safe root import)
 
 ## Installation
 
@@ -29,6 +29,20 @@ npm install fitsjs-ng
 # or
 pnpm add fitsjs-ng
 ```
+
+## Runtime Compatibility Matrix
+
+| Capability                                         | Node.js | Browser                      | React Native                 |
+| -------------------------------------------------- | ------- | ---------------------------- | ---------------------------- |
+| `import { ... } from 'fitsjs-ng'` root import      | ✅      | ✅                           | ✅                           |
+| FITS/SER/XISF from `ArrayBuffer`/`Blob`/`URL`      | ✅      | ✅                           | ✅                           |
+| XISF detached signature verification (default on)  | ✅      | ✅ (requires WebCrypto)      | ✅ (requires WebCrypto)      |
+| `NodeFSTarget`                                     | ✅      | ❌ (runtime error)           | ❌ (runtime error)           |
+| `HiPS.open('/local/path')`                         | ✅      | ❌ (runtime error)           | ❌ (runtime error)           |
+| `lintHiPS('/local/path')`                          | ✅      | ❌ (runtime error report)    | ❌ (runtime error report)    |
+| distributed XISF `path(...)` with default resolver | ✅      | ❌ (provide custom resolver) | ❌ (provide custom resolver) |
+
+Node-only APIs fail with actionable runtime messages in non-Node environments instead of failing at bundle-import time.
 
 ## Quick Start
 
@@ -139,6 +153,23 @@ const cutoutFits = await convertHiPSToFITS('./out/my-hips', {
 
 const lint = await lintHiPS('./out/my-hips')
 console.log(lint.ok, lint.issues)
+```
+
+### React Native Notes
+
+- Prefer `ArrayBuffer` / `Blob` / URL-based workflows.
+- Use custom `HiPSExportTarget` implementations or browser-friendly targets (`BrowserZipTarget`) instead of `NodeFSTarget`.
+- Avoid local filesystem path inputs (`HiPS.open('/path')`, `lintHiPS('/path')`) unless you provide your own storage abstraction.
+- Detached XISF signature verification requires `crypto.subtle`; if unavailable, verification fails by default.
+
+```ts
+import { XISF } from 'fitsjs-ng'
+
+// If your RN runtime does not provide WebCrypto, disable signature verification explicitly.
+const xisf = await XISF.fromArrayBuffer(bytes, {
+  verifySignatures: false,
+  signaturePolicy: 'ignore',
+})
 ```
 
 ## API Reference

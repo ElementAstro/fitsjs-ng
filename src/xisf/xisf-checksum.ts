@@ -1,6 +1,7 @@
 import sha3Module from 'js-sha3'
 import type { XISFChecksumSpec } from './xisf-types'
 import { XISFChecksumError } from './xisf-errors'
+import { importNodeModule } from '../core/runtime'
 
 const sha3_256: (data: Uint8Array) => string = (
   sha3Module as unknown as { sha3_256: (data: Uint8Array) => string }
@@ -26,9 +27,13 @@ async function digestSubtle(algorithm: string, data: Uint8Array): Promise<string
     return toHex(digest)
   }
 
-  const mod = (await import('node:crypto')) as {
+  const mod = await importNodeModule<{
     createHash(name: string): { update(data: Uint8Array): unknown; digest(enc: 'hex'): string }
-  }
+  }>(
+    'crypto',
+    `XISF checksum ${algorithm} without WebCrypto`,
+    'Enable WebCrypto or run in Node.js for checksum verification.',
+  )
 
   const h = mod.createHash(algorithm.toLowerCase().replace('-', ''))
   h.update(data)

@@ -94,4 +94,26 @@ describe('hips-lint', () => {
       await rm(dir, { recursive: true, force: true })
     }
   })
+
+  it('reports actionable errors for local-path linting in React Native-like runtimes', async () => {
+    const originalNavigatorDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'navigator')
+    Object.defineProperty(globalThis, 'navigator', {
+      value: { product: 'ReactNative' },
+      configurable: true,
+    })
+    try {
+      const report = await lintHiPS('/tmp/fitsjs-lint')
+      expect(report.ok).toBe(false)
+      expect(report.issues.some((issue) => issue.code === 'PROPERTIES_READ_FAILED')).toBe(true)
+      expect(
+        report.issues.some((issue) => issue.message.includes('requires Node.js runtime')),
+      ).toBe(true)
+    } finally {
+      if (originalNavigatorDescriptor) {
+        Object.defineProperty(globalThis, 'navigator', originalNavigatorDescriptor)
+      } else {
+        delete (globalThis as { navigator?: unknown }).navigator
+      }
+    }
+  })
 })
