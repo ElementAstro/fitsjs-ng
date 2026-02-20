@@ -1,63 +1,57 @@
 # Project Structure
 
-```
-typescript-quick-starter/
-├── .github/
-│   └── workflows/
-│       ├── ci.yml              # CI pipeline
-│       └── docs.yml            # Docs deployment
-├── .husky/
-│   ├── commit-msg              # Commitlint hook
-│   └── pre-commit              # Lint-staged hook
-├── docs/                       # VitePress documentation
-│   ├── .vitepress/
-│   │   └── config.ts           # VitePress config
+```text
+fitsjs-ng/
+├── demo/                        # Node + web demos
+│   ├── index.ts
+│   ├── ser-node.ts
+│   ├── xisf-node.ts
+│   ├── hips-node.ts
+│   └── web/
+├── docs/                        # VitePress docs
+│   ├── .vitepress/config.ts
 │   ├── api/
-│   │   └── index.md            # API reference
-│   ├── guide/
-│   │   ├── building.md
-│   │   ├── getting-started.md
-│   │   ├── installation.md
-│   │   ├── project-structure.md
-│   │   └── testing.md
-│   └── index.md                # Home page
-├── src/
-│   └── index.ts                # Library entry point
-├── test/
-│   └── index.test.ts           # Tests
-├── .editorconfig               # Editor settings
-├── .gitignore
-├── .lintstagedrc.json          # Lint-staged config
-├── .node-version               # Node version
-├── .npmrc                      # pnpm settings
-├── .prettierrc                 # Prettier config
-├── .prettierignore
-├── CHANGELOG.md
-├── LICENSE
-├── README.md
-├── commitlint.config.js        # Commit message linting
-├── eslint.config.js            # ESLint flat config
+│   └── guide/
+├── src/                         # Library source
+│   ├── core/                    # Shared constants/types/errors/utils
+│   ├── fits/                    # FITS parser/writer/data units
+│   ├── xisf/                    # XISF parser/writer/conversion
+│   ├── ser/                     # SER parser/writer/conversion
+│   ├── hips/                    # HiPS build/export/bridge/targets
+│   ├── validation/              # Lint/validation helpers
+│   └── index.ts                 # Public exports
+├── test/                        # Domain-grouped tests
+│   ├── core/
+│   ├── fits/
+│   ├── xisf/
+│   ├── ser/
+│   ├── hips/
+│   ├── validation/
+│   ├── shared/
+│   └── fixtures/
 ├── package.json
-├── tsconfig.build.json         # Build-specific TS config
-├── tsconfig.json               # Base TS config
-├── tsup.config.ts              # Bundler config
-└── vitest.config.ts            # Test config
+├── tsconfig.json
+├── tsup.config.ts
+└── vitest.config.ts
 ```
 
-## Key Directories
+## Directory Notes
 
 ### `src/`
 
-Library source code. The entry point is `src/index.ts`. All public APIs should be exported from here.
+All runtime code. Public APIs are re-exported via `src/index.ts`.
+
+### `demo/`
+
+Executable examples for Node and browser scenarios.
+
+- Node demos write artifacts under `demo/.out/*`.
+- Web demos are served via `pnpm demo:web`.
 
 ### `test/`
 
-Test files using Vitest. Test files should follow the `*.test.ts` or `*.spec.ts` naming convention.
+Tests are organized by domain to mirror `src/` for easier maintenance.
 
 ### `docs/`
 
-VitePress documentation site. Run `pnpm docs:dev` to start the local dev server.
-
-### `dist/`
-
-Generated build output (gitignored). Contains ESM, CJS, and declaration files.
+VitePress documentation. Run `pnpm docs:dev` for local preview.

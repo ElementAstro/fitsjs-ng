@@ -295,6 +295,7 @@
           <div class="row">
             <button id="btn-zip">Build HiPS to ZIP</button>
             <button id="btn-opfs" class="secondary">Build HiPS to OPFS</button>
+            <button id="btn-xisf-bridge" class="secondary">Run XISF Bridge</button>
             <button id="btn-lint" class="secondary">Lint Last Build</button>
             <button id="btn-clear" class="secondary">Clear Log</button>
           </div>
@@ -330,8 +331,12 @@
     import {
       BrowserZipTarget,
       BrowserOPFSTarget,
+      XISF,
       convertFitsToHiPS,
+      convertFitsToXisf,
+      convertHiPSToXisf,
       convertHiPSToFITS,
+      convertXisfToHiPS,
       createImageBytesFromArray,
       createImageHDU,
       lintHiPS,
@@ -522,6 +527,46 @@
       log('[OPFS] done.')
     }
 
+    async function runXisfBridgeDemo() {
+      const config = readDemoConfig()
+      const fits = makeInputFits(config)
+      const bridgeTarget = new BrowserZipTarget()
+      log(`[XISF bridge] building bridge dataset from ${config.dataMode.toUpperCase()} FITS ...`)
+
+      const xisfInput = await convertFitsToXisf(fits)
+      await convertXisfToHiPS(xisfInput, {
+        output: bridgeTarget,
+        title: 'Web XISF Bridge demo',
+        creatorDid: 'ivo://fitsjs-ng/demo/web-xisf-bridge',
+        hipsOrder: config.hipsOrder,
+        minOrder: 1,
+        tileWidth: config.tileWidth,
+        formats: config.formats,
+      })
+
+      const cutoutXisf = await convertHiPSToXisf(bridgeTarget, {
+        cutout: { width: 160, height: 80, ra: 180, dec: 0, fov: 2.5, interpolation: config.interpolation },
+      })
+      const mapXisf = await convertHiPSToXisf(bridgeTarget, {
+        map: { order: Math.max(1, config.hipsOrder - 1), ordering: 'NESTED' },
+      })
+
+      const parsedCutout = await XISF.fromArrayBuffer(cutoutXisf)
+      const parsedMap = await XISF.fromArrayBuffer(mapXisf)
+      setMeta([
+        ['Bridge dataset', config.dataMode === 'cube' ? 'HiPS3D cube' : '2D image'],
+        ['Bridge formats', config.formats.join(', ')],
+        ['Cutout XISF bytes', cutoutXisf.byteLength],
+        ['Cutout images', parsedCutout.unit.images.length],
+        ['Cutout geometry', parsedCutout.unit.images[0] ? [...parsedCutout.unit.images[0].geometry, parsedCutout.unit.images[0].channelCount].join('x') : 'n/a'],
+        ['Map XISF bytes', mapXisf.byteLength],
+        ['Map images', parsedMap.unit.images.length],
+      ])
+      lastHiPSSource = bridgeTarget
+      lastBuildLabel = 'XISF bridge target'
+      log('[XISF bridge] done.')
+    }
+
     async function runLintLast() {
       if (!lastHiPSSource) {
         log('[LINT] no previous build result. Run ZIP or OPFS build first.')
@@ -547,6 +592,14 @@
         await runOPFSDemo()
       } catch (e) {
         log(`[OPFS] error: ${e instanceof Error ? e.message : String(e)}`)
+      }
+    })
+
+    $('#btn-xisf-bridge').addEventListener('click', async () => {
+      try {
+        await runXisfBridgeDemo()
+      } catch (e) {
+        log(`[XISF bridge] error: ${e instanceof Error ? e.message : String(e)}`)
       }
     })
 

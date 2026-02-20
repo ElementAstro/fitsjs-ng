@@ -20,8 +20,11 @@ static async fromBlob(blob: Blob, options?: ReadOptions): Promise<FITS>
 // Async — from remote URL
 static async fromURL(url: string, options?: FetchOptions): Promise<FITS>
 
-// From Node.js Buffer
-static fromNodeBuffer(buf: NodeBuffer, options?: ReadOptions): FITS
+// From Node.js Buffer-like data
+static fromNodeBuffer(
+  buf: { buffer: ArrayBuffer; byteOffset: number; byteLength: number },
+  options?: ReadOptions,
+): FITS
 ```
 
 ### Instance Methods
@@ -35,7 +38,7 @@ getDataUnit(index?: number): DataUnit | undefined
 ### Example
 
 ```ts
-import { FITS } from 'fitsjs-ng'
+import { FITS, Image } from 'fitsjs-ng'
 
 const fits = await FITS.fromURL('https://example.com/image.fits')
 const header = fits.getHeader()
@@ -204,9 +207,9 @@ readonly height: number
 ## Types
 
 ```ts
-type BitPix = 8 | 16 | 32 | -32 | -64
+type BitPix = 8 | 16 | 32 | 64 | -32 | -64
 type CardValue = string | number | boolean | null
-type DataUnitType = 'Image' | 'Table' | 'BinaryTable' | 'CompressedImage'
+type DataUnitType = 'Image' | 'BinaryTable' | 'Table' | 'CompressedImage'
 type TypedArray = Uint8Array | Int8Array | Int16Array | Int32Array | Float32Array | Float64Array | ...
 
 interface ReadOptions {
@@ -240,8 +243,8 @@ class DecompressionError extends FITSError {}
 ```ts
 function parseBuffer(buffer: ArrayBuffer, options?: ReadOptions): HDU[]
 function parseBlob(blob: Blob, options?: ReadOptions): Promise<HDU[]>
-function getExtent(arr: TypedArray): [number, number]
-function getPixel(arr: TypedArray, x: number, y: number, width: number): number
+function getExtent(arr: TypedArray): [number | bigint, number | bigint]
+function getPixel(arr: TypedArray, x: number, y: number, width: number): number | bigint
 function riceDecompress(...): void
 ```
 

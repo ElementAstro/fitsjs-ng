@@ -38,74 +38,77 @@ import {
   SER,
   XISF,
   XISFWriter,
+  parseSERBuffer,
+  parseSERBlob,
   convertFitsToXisf,
   convertXisfToFits,
   convertSerToFits,
   convertFitsToSer,
+  convertSerToXisf,
+  convertXisfToSer,
   convertXisfToHiPS,
   convertHiPSToXisf,
   NodeFSTarget,
   Image,
 } from 'fitsjs-ng'
+import fs from 'node:fs'
 
-// From a URL
-const fits = await FITS.fromURL('https://example.com/image.fits')
+// FITS from ArrayBuffer / Blob / Node buffer-like / URL
+const fits = FITS.fromArrayBuffer(
+  await fs.promises
+    .readFile('image.fits')
+    .then((b) => b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength)),
+)
+const fitsFromBlob = await FITS.fromBlob(new Blob([await fs.promises.readFile('image.fits')]))
+const fitsFromNodeBuffer = FITS.fromNodeBuffer(await fs.promises.readFile('image.fits'))
+const fitsFromUrl = await FITS.fromURL('https://example.com/image.fits')
 
-// From an ArrayBuffer
-const fits = FITS.fromArrayBuffer(buffer)
-
-// From a File/Blob (browser)
-const fits = await FITS.fromBlob(file)
-
-// From a Node.js Buffer
-const fits = FITS.fromNodeBuffer(fs.readFileSync('image.fits'))
-
-// Access the primary header
+// Access header + image
 const header = fits.getHeader()
-console.log(header.get('BITPIX')) // e.g. -32
-console.log(header.get('NAXIS1')) // e.g. 1024
-
-// Read image pixels
+console.log(header?.get('BITPIX'))
 const image = fits.getDataUnit() as Image
 const pixels = await image.getFrame(0)
 const [min, max] = image.getExtent(pixels)
 
-// XISF from URL / buffer
-const xisf = await XISF.fromURL('https://example.com/image.xisf')
-
-// SER from URL / buffer
-const ser = await SER.fromURL('https://example.com/capture.ser')
-
-// Convert XISF -> FITS
-const fitsBytes = await convertXisfToFits(
-  await fetch('https://example.com/image.xisf').then((r) => r.arrayBuffer()),
+// FITS <-> XISF
+const xisfBytes = await convertFitsToXisf(
+  await fs.promises
+    .readFile('image.fits')
+    .then((b) => b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength)),
 )
+const xisf = await XISF.fromArrayBuffer(xisfBytes as ArrayBuffer)
+const fitsBytes = await convertXisfToFits(xisf)
 
-// Convert FITS -> XISF (monolithic by default)
-const xisfBytes = await convertFitsToXisf(fitsBytes)
+// SER parse + conversions
+const serBytes = await fs.promises
+  .readFile('capture.ser')
+  .then((b) => b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength))
+const ser = SER.fromArrayBuffer(serBytes)
+const parsedSer = parseSERBuffer(serBytes)
+const parsedSerBlob = await parseSERBlob(new Blob([serBytes]))
+const fitsFromSer = await convertSerToFits(serBytes, { layout: 'cube' })
+const serFromFits = await convertFitsToSer(fitsFromSer, { sourceLayout: 'auto' })
+const xisfFromSer = await convertSerToXisf(serBytes)
+const serFromXisf = await convertXisfToSer(xisfFromSer as ArrayBuffer, { imageIndex: 0 })
 
-// Convert SER -> FITS / FITS -> SER
-const fitsFromSer = await convertSerToFits(
-  await fetch('https://example.com/capture.ser').then((r) => r.arrayBuffer()),
-)
-const serFromFits = await convertFitsToSer(fitsFromSer)
-
-// Convert XISF -> HiPS and HiPS -> XISF
-await convertXisfToHiPS(
-  await fetch('https://example.com/image.xisf').then((r) => r.arrayBuffer()),
-  {
-    output: new NodeFSTarget('./out/xisf-hips'),
-    title: 'XISF Survey',
-    creatorDid: 'ivo://example/xisf',
-    hipsOrder: 6,
-  },
-)
-const xisfFromHips = await convertHiPSToXisf('./out/xisf-hips', {
+// XISF <-> HiPS (offline/local target)
+const hipsTarget = new NodeFSTarget('./demo/.out/readme-quickstart-hips')
+await convertXisfToHiPS(xisfBytes as ArrayBuffer, {
+  output: hipsTarget,
+  title: 'XISF Survey',
+  creatorDid: 'ivo://example/xisf',
+  hipsOrder: 4,
+  minOrder: 1,
+  tileWidth: 128,
+  formats: ['fits', 'png'],
+})
+const xisfCutout = await convertHiPSToXisf(hipsTarget, {
   cutout: { width: 512, height: 512, ra: 83.63, dec: 22.01, fov: 1.2 },
 })
 
-// Write distributed XISF unit
-const distributed = await XISFWriter.toDistributed(xisf.unit)
+// XISF writer outputs
+const monolithic = await XISFWriter.toMonolithic(xisf.unit, { compression: 'zlib' })
+const distributed = await XISFWriter.toDistributed(xisf.unit, { compression: 'zlib' })
 // distributed.header => .xish bytes, distributed.blocks['blocks.xisb'] => .xisb bytes
 ```
 
@@ -359,12 +362,15 @@ pnpm test          # Run tests
 pnpm build         # Build library
 pnpm typecheck     # Type check
 pnpm lint          # Lint
+pnpm demo:all      # Run all Node demos in sequence
 pnpm demo          # FITS/XISF CLI demo
 pnpm demo:hips     # HiPS Node demo (FITS->HiPS->FITS)
 pnpm demo:xisf     # XISF Node demo (FITS<->XISF, monolithic/distributed)
 pnpm demo:ser      # SER Node demo (SER<->FITS<->XISF)
 pnpm demo:web      # Serve web demos (open /demo/web/index.html, /demo/web/hips.html, /demo/web/xisf.html)
 ```
+
+Node demo artifacts are written under `demo/.out/*`.
 
 ## Standards & Compatibility
 

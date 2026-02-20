@@ -51,6 +51,7 @@
     "publish:npm": "pnpm publish --no-git-checks --access public",
     "publish:gpr": "pnpm publish --no-git-checks --registry https://npm.pkg.github.com",
     "demo": "tsx demo/index.ts",
+    "demo:all": "pnpm run demo && pnpm run demo:xisf && pnpm run demo:ser && pnpm run demo:hips",
     "demo:hips": "tsx demo/hips-node.ts",
     "demo:xisf": "tsx demo/xisf-node.ts",
     "demo:ser": "tsx demo/ser-node.ts",

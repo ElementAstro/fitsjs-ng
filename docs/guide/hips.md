@@ -5,7 +5,8 @@
 - FITS -> HiPS directory generation
 - HiPS -> FITS export (`tile`, `map`, `cutout`)
 - Node and browser write targets (`NodeFSTarget`, `BrowserZipTarget`, `BrowserOPFSTarget`)
-- Local processing with optional `hips2fits` remote fallback
+- Local processing by default, with optional `hips2fits` remote fallback
+- XISF bridge workflows (`XISF -> HiPS -> XISF`)
 
 ## FITS to HiPS
 
@@ -31,34 +32,34 @@ Generated outputs:
 - `Norder3/Allsky.*` (when available)
 - `index.html` landing page (when enabled)
 
-Allsky behavior:
-
-- image datasets generate `Norder3/Allsky.fits/png/jpg` according to requested `formats`
-- cube datasets emit Allsky in FITS only (non-FITS Allsky is intentionally restricted and marked in `properties`)
-
 ## HiPS to FITS
 
 ```ts
 import { convertHiPSToFITS } from 'fitsjs-ng'
 
-// Tile export
 const tileFits = await convertHiPSToFITS('./out/hips', {
   tile: { order: 7, ipix: 12345 },
 })
 
-// HEALPix map export
 const mapFits = await convertHiPSToFITS('./out/hips', {
   map: { order: 7, ordering: 'NESTED' },
 })
 
-// WCS cutout export
 const cutoutFits = await convertHiPSToFITS('./out/hips', {
   cutout: { width: 1024, height: 1024, ra: 83.63, dec: 22.01, fov: 1.2 },
   backend: 'local',
 })
 ```
 
-## Remote Fallback (`hips2fits`)
+## Local vs Remote Backend
+
+Default recommendation is local/offline processing:
+
+- `backend: 'local'`: local reprojection only
+- `backend: 'auto'`: local first, then remote fallback (requires `hipsId`)
+- `backend: 'remote'`: remote hips2fits only (requires `hipsId`)
+
+Remote example:
 
 ```ts
 const cutoutFits = await convertHiPSToFITS('https://alasky.cds.unistra.fr/DSS/DSSColor', {
@@ -68,24 +69,37 @@ const cutoutFits = await convertHiPSToFITS('https://alasky.cds.unistra.fr/DSS/DS
 })
 ```
 
-- `local`: local reprojection only
-- `remote`: hips2fits only (requires `hipsId`)
-- `auto`: local first, then remote fallback
-
-## XISF <-> HiPS
+## XISF <-> HiPS Bridge
 
 ```ts
-import { NodeFSTarget, convertXisfToHiPS, convertHiPSToXisf } from 'fitsjs-ng'
+import { NodeFSTarget, convertHiPSToXisf, convertXisfToHiPS } from 'fitsjs-ng'
 
-await convertXisfToHiPS(await fetch('/image.xisf').then((r) => r.arrayBuffer()), {
+await convertXisfToHiPS(xisfBuffer, {
   output: new NodeFSTarget('./out/hips-from-xisf'),
   imageIndex: 0,
   title: 'XISF Survey',
   creatorDid: 'ivo://example/xisf',
   hipsOrder: 6,
+  minOrder: 1,
+  tileWidth: 256,
+  formats: ['fits', 'png'],
 })
 
 const xisfCutout = await convertHiPSToXisf('./out/hips-from-xisf', {
   cutout: { width: 512, height: 512, ra: 83.63, dec: 22.01, fov: 1.2 },
 })
+
+const xisfMap = await convertHiPSToXisf('./out/hips-from-xisf', {
+  map: { order: 5, ordering: 'NESTED' },
+})
 ```
+
+## Demo
+
+Run Node demo:
+
+```bash
+pnpm demo:hips
+```
+
+Outputs are written to `demo/.out/hips-node`.

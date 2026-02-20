@@ -4,7 +4,9 @@ export default defineConfig({
   title: 'fitsjs-ng',
   description: 'TypeScript FITS/XISF/HiPS library for Node.js and browsers',
 
-  base: '/typescript-quick-starter/',
+  // GitHub Pages path for https://elementastro.github.io/fitsjs-ng/
+  // Change to '/' if deploying docs at a domain root.
+  base: '/fitsjs-ng/',
 
   lastUpdated: true,
   cleanUrls: true,
@@ -31,6 +33,7 @@ export default defineConfig({
           text: 'Development',
           items: [
             { text: 'Project Structure', link: '/guide/project-structure' },
+            { text: 'Documentation Standards', link: '/guide/documentation-standards' },
             { text: 'Building', link: '/guide/building' },
             { text: 'Testing', link: '/guide/testing' },
           ],

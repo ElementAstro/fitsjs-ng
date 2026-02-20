@@ -1,43 +1,54 @@
 # Testing
 
-The project uses [Vitest](https://vitest.dev/) as its testing framework.
+The project uses [Vitest](https://vitest.dev/) for unit/integration tests.
 
-## Running Tests
+## Run Test Suites
 
 ```bash
-# Run all tests
 pnpm test
+```
 
-# Watch mode
+Watch mode:
+
+```bash
 pnpm test:watch
+```
 
-# With coverage report
+Coverage:
+
+```bash
 pnpm test:coverage
 ```
 
-## Writing Tests
+## Targeted Regression Runs
 
-Test files should be placed in the `test/` directory with a `.test.ts` or `.spec.ts` suffix.
+For fast checks on core conversion flows:
+
+```bash
+pnpm test -- -t "SER conversions|XISF/FITS conversion|hips-convert"
+```
+
+## Test Layout
+
+- FITS tests: `test/fits/*.test.ts`
+- XISF tests: `test/xisf/*.test.ts`
+- SER tests: `test/ser/*.test.ts`
+- HiPS tests: `test/hips/*.test.ts`
+- Validation tests: `test/validation/*.test.ts`
+- Shared fixtures/helpers: `test/fixtures/*`, `test/shared/*`
+
+## Writing New Tests
+
+Use `*.test.ts` naming and keep tests near domain folders.
 
 ```ts
-import { describe, it, expect } from 'vitest'
-import { greet } from '../src/index'
+import { describe, expect, it } from 'vitest'
+import { FITS } from '../../src/fits'
 
-describe('greet', () => {
-  it('should return greeting message', () => {
-    expect(greet('World')).toBe('Hello, World!')
+describe('fits parser', () => {
+  it('parses a simple image', () => {
+    const fits = FITS.fromArrayBuffer(buffer)
+    expect(fits.getHeader()?.getNumber('NAXIS')).toBe(2)
   })
 })
-```
-
-## Coverage
-
-Coverage is collected using the `v8` provider and outputs in three formats:
-
-- **text** — Console output
-- **json** — Machine-readable JSON
-- **html** — Browse at `coverage/index.html`
-
-```bash
-pnpm test:coverage
 ```

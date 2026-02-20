@@ -33,6 +33,20 @@ The build is configured in `tsup.config.ts`:
 - **Clean** — Clears `dist/` before each build
 - **Target** — ES2022 for modern JavaScript features
 
+## Docs Build
+
+Build VitePress site:
+
+```bash
+pnpm docs:build
+```
+
+Local docs dev server:
+
+```bash
+pnpm docs:dev
+```
+
 ## Watch Mode
 
 For development, use watch mode to rebuild on file changes:

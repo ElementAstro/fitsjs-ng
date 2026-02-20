@@ -10,14 +10,43 @@
 ## Quick Start
 
 ```ts
-import { SER, convertSerToFits, convertFitsToSer } from 'fitsjs-ng'
+import {
+  SER,
+  parseSERBuffer,
+  parseSERBlob,
+  convertSerToFits,
+  convertFitsToSer,
+  convertSerToXisf,
+  convertXisfToSer,
+} from 'fitsjs-ng'
 
 const ser = SER.fromArrayBuffer(buffer)
+const parsed = parseSERBuffer(buffer)
+const parsedBlob = await parseSERBlob(new Blob([buffer]))
+
 const firstFrame = ser.getFrame(0)
 const firstRGB = ser.getFrameRGB(0)
 
 const fits = await convertSerToFits(buffer)
-const serBack = await convertFitsToSer(fits)
+const serBack = await convertFitsToSer(fits, { sourceLayout: 'auto' })
+const xisf = await convertSerToXisf(buffer)
+const serFromXisf = await convertXisfToSer(xisf as ArrayBuffer)
+```
+
+## Parser Entry APIs
+
+Use parser helpers when you need structured metadata/offset information directly:
+
+```ts
+const parsed = parseSERBuffer(buffer, {
+  strictValidation: true,
+  endiannessPolicy: 'compat',
+})
+
+const parsedFromBlob = await parseSERBlob(blob, {
+  strictValidation: false,
+  endiannessPolicy: 'auto',
+})
 ```
 
 ## Sequence Metrics
@@ -26,8 +55,10 @@ const serBack = await convertFitsToSer(fits)
 
 ```ts
 const frameCount = ser.getFrameCount()
+const durationTicks = ser.getDurationTicks()
 const durationSeconds = ser.getDurationSeconds()
 const fps = ser.getEstimatedFPS()
+const firstTimestampDate = ser.getTimestampDate(0)
 ```
 
 ## Endianness Policy
@@ -39,10 +70,9 @@ SER uses a historical endianness flag with ecosystem ambiguity for 16-bit data.
 - `auto`: heuristic fallback based on frame statistics
 
 ```ts
-const ser = SER.fromArrayBuffer(buffer, {
-  endiannessPolicy: 'compat',
-  strictValidation: true,
-})
+const compat = SER.fromArrayBuffer(buffer, { endiannessPolicy: 'compat' })
+const spec = SER.fromArrayBuffer(buffer, { endiannessPolicy: 'spec' })
+const auto = SER.fromArrayBuffer(buffer, { endiannessPolicy: 'auto' })
 ```
 
 ## FITS Layout Strategies
@@ -59,8 +89,12 @@ const ser = SER.fromArrayBuffer(buffer, {
 - `sourceLayout: 'multi-hdu'`: force frame-per-HDU decode
 
 ```ts
+const fitsCube = await convertSerToFits(buffer, { layout: 'cube' })
 const fitsMulti = await convertSerToFits(buffer, { layout: 'multi-hdu' })
-const serBack = await convertFitsToSer(fitsMulti, { sourceLayout: 'auto' })
+
+const serFromCube = await convertFitsToSer(fitsCube, { sourceLayout: 'cube' })
+const serFromAuto = await convertFitsToSer(fitsMulti, { sourceLayout: 'auto' })
+const serFromMulti = await convertFitsToSer(fitsMulti, { sourceLayout: 'multi-hdu' })
 ```
 
 ## XISF Image Selection
@@ -85,3 +119,5 @@ Run Node demo:
 ```bash
 pnpm demo:ser
 ```
+
+Outputs are written to `demo/.out/ser-node`.

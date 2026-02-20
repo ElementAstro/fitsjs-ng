@@ -158,6 +158,47 @@
       display: none;
     }
 
+    .form-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 10px;
+      font-family: ui-sans-serif, system-ui, sans-serif;
+      font-size: 12px;
+    }
+
+    .form-grid label {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      font-size: 11px;
+    }
+
+    .form-grid select,
+    .form-grid input[type="number"] {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fffdfa;
+      color: var(--ink);
+      padding: 6px 8px;
+      font-size: 12px;
+      text-transform: none;
+      letter-spacing: 0;
+    }
+
+    .checkbox-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 10px;
+      font-family: ui-sans-serif, system-ui, sans-serif;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
     .kvs {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -275,6 +316,9 @@
       .preview-controls {
         grid-template-columns: 1fr;
       }
+      .form-grid {
+        grid-template-columns: 1fr;
+      }
       pre {
         min-height: 260px;
       }
@@ -334,6 +378,41 @@
             </label>
             <button id="btn-load-distributed" class="alt">Load Distributed Pair</button>
           </div>
+        </div>
+
+        <div class="block">
+          <h2>Advanced Conversion</h2>
+          <div class="form-grid">
+            <label>
+              Signature Policy
+              <select id="sig-policy">
+                <option value="require">require</option>
+                <option value="warn">warn</option>
+                <option value="ignore">ignore</option>
+              </select>
+            </label>
+            <label>
+              Writer Compression
+              <select id="writer-compression">
+                <option value="zlib">zlib</option>
+                <option value="lz4">lz4</option>
+                <option value="lz4hc">lz4hc</option>
+                <option value="none">none</option>
+              </select>
+            </label>
+            <label>
+              Distributed Inline Limit
+              <input id="writer-inline" type="number" min="0" step="1" value="1024" />
+            </label>
+          </div>
+          <div class="checkbox-row">
+            <input id="sig-verify" type="checkbox" checked />
+            <label for="sig-verify">Verify detached signatures</label>
+          </div>
+          <div class="row">
+            <button id="btn-reparse-policy" class="alt">Reparse With Policy</button>
+          </div>
+          <div class="warning">Offline demo: policy calls are shown without requiring remote resources.</div>
         </div>
 
         <div class="block">
@@ -410,10 +489,15 @@
     const previewSliceEl = $('#preview-slice')
     const xishInputEl = $('#xish-input')
     const xisbInputEl = $('#xisb-input')
+    const sigPolicyEl = $('#sig-policy')
+    const sigVerifyEl = $('#sig-verify')
+    const writerCompressionEl = $('#writer-compression')
+    const writerInlineEl = $('#writer-inline')
 
     let lastFitsBuffer = null
     let lastXisf = null
     let lastXisfBuffer = null
+    let lastDistributedPair = null
     let lastPreview = null
     let lastPreviewLabel = 'Loaded XISF'
 
@@ -439,6 +523,24 @@
       summaryEl.innerHTML = Object.entries(defaults)
         .map(([k, v]) => `<div><span>${k}</span>${String(v)}</div>`)
         .join('')
+    }
+
+    function readPolicyFromUI() {
+      const verifySignatures = Boolean(sigVerifyEl?.checked)
+      let signaturePolicy = sigPolicyEl?.value || 'require'
+      if (!verifySignatures && signaturePolicy === 'require') {
+        signaturePolicy = 'ignore'
+        if (sigPolicyEl) sigPolicyEl.value = 'ignore'
+        log('Adjusted signaturePolicy to "ignore" because verifySignatures=false.')
+      }
+      return { verifySignatures, signaturePolicy }
+    }
+
+    function readWriterOptions() {
+      const compressionRaw = writerCompressionEl?.value || 'zlib'
+      const compression = compressionRaw === 'none' ? null : compressionRaw
+      const maxInlineBlockSize = Math.max(0, Number.parseInt(writerInlineEl?.value || '0', 10) || 0)
+      return { compression, maxInlineBlockSize }
     }
 
     function clampInt(value, min, max) {
@@ -832,13 +934,27 @@
     }
 
     async function parseAndSummarizeXisf(buffer, label) {
-      const parsed = await XISF.fromArrayBuffer(buffer)
-      return summarizeParsedXisf(parsed, label, buffer.byteLength)
+      const warnings = []
+      const { verifySignatures, signaturePolicy } = readPolicyFromUI()
+      const parsed = await XISF.fromArrayBuffer(buffer, {
+        verifySignatures,
+        signaturePolicy,
+        onWarning: (warning) => warnings.push(warning),
+      })
+      if (warnings.length > 0) {
+        log(`XISF warnings (${label}): ${warnings.map((w) => w.code).join(', ')}`)
+      }
+      return summarizeParsedXisf(parsed, `${label} [sig:${signaturePolicy},verify:${verifySignatures}]`, buffer.byteLength)
     }
 
     async function loadDistributedXisf(headerBuffer, blocksBuffer, label) {
+      const warnings = []
+      const { verifySignatures, signaturePolicy } = readPolicyFromUI()
       const parsed = await XISF.fromArrayBuffer(headerBuffer, {
         headerDir: '/demo/web',
+        verifySignatures,
+        signaturePolicy,
+        onWarning: (warning) => warnings.push(warning),
         resourceResolver: {
           resolveURL: async (url) => {
             throw new Error(`Unexpected URL resolver request: ${url}`)
@@ -852,11 +968,19 @@
           },
         },
       })
-      return summarizeParsedXisf(parsed, label, headerBuffer.byteLength + blocksBuffer.byteLength)
+      if (warnings.length > 0) {
+        log(`XISF warnings (${label}): ${warnings.map((w) => w.code).join(', ')}`)
+      }
+      return summarizeParsedXisf(
+        parsed,
+        `${label} [sig:${signaturePolicy},verify:${verifySignatures}]`,
+        headerBuffer.byteLength + blocksBuffer.byteLength,
+      )
     }
 
     async function handleFitsBuffer(buffer, sourceLabel) {
       lastFitsBuffer = buffer
+      lastDistributedPair = null
       setSummary({ Status: 'Converting', 'Input Kind': sourceLabel })
       log(`Loaded FITS (${sourceLabel}), bytes=${buffer.byteLength}`)
 
@@ -891,16 +1015,25 @@
 
     async function writeMonolithic() {
       if (!lastXisf) return
-      const output = await XISFWriter.toMonolithic(lastXisf.unit, { compression: 'zlib' })
-      log(`XISFWriter.toMonolithic => ${output.byteLength} bytes`)
+      const options = readWriterOptions()
+      const output = await XISFWriter.toMonolithic(lastXisf.unit, {
+        compression: options.compression,
+      })
+      log(`XISFWriter.toMonolithic => ${output.byteLength} bytes (compression=${String(options.compression)})`)
       setSummary({ Status: 'Wrote monolithic', 'Output Bytes': output.byteLength })
       download(output, 'demo-output.xisf')
     }
 
     async function writeDistributed() {
       if (!lastXisf) return
-      const distributed = await XISFWriter.toDistributed(lastXisf.unit, { compression: 'zlib' })
-      log(`XISFWriter.toDistributed => header=${distributed.header.byteLength}, blocks.xisb=${distributed.blocks['blocks.xisb'].byteLength}`)
+      const options = readWriterOptions()
+      const distributed = await XISFWriter.toDistributed(lastXisf.unit, {
+        compression: options.compression,
+        maxInlineBlockSize: options.maxInlineBlockSize,
+      })
+      log(
+        `XISFWriter.toDistributed => header=${distributed.header.byteLength}, blocks.xisb=${distributed.blocks['blocks.xisb'].byteLength}, compression=${String(options.compression)}, maxInline=${options.maxInlineBlockSize}`,
+      )
       setSummary({
         Status: 'Wrote distributed',
         'Output Bytes': `${distributed.header.byteLength} + ${distributed.blocks['blocks.xisb'].byteLength}`,
@@ -929,6 +1062,7 @@
       if (!file) return
       const buffer = await file.arrayBuffer()
       lastXisfBuffer = buffer
+      lastDistributedPair = null
       parseAndSummarizeXisf(buffer, file.name)
         .then(async (parsed) => {
           const fits = await convertXisfToFits(parsed)
@@ -951,12 +1085,35 @@
         const headerBuffer = await headerFile.arrayBuffer()
         const blocksBuffer = await blocksFile.arrayBuffer()
         lastXisfBuffer = headerBuffer
+        lastDistributedPair = { headerBuffer, blocksBuffer, label: `${headerFile.name} + ${blocksFile.name}` }
         const label = `${headerFile.name} + ${blocksFile.name}`
         const parsed = await loadDistributedXisf(headerBuffer, blocksBuffer, label)
         const fits = await convertXisfToFits(parsed)
         log(`Distributed XISF -> FITS, bytes=${fits.byteLength}`)
         $('#btn-write-mono').disabled = false
         $('#btn-write-dist').disabled = false
+      } catch (error) {
+        log(`Error: ${error instanceof Error ? error.message : String(error)}`)
+      }
+    })
+
+    $('#btn-reparse-policy').addEventListener('click', async () => {
+      try {
+        if (lastDistributedPair) {
+          await loadDistributedXisf(
+            lastDistributedPair.headerBuffer,
+            lastDistributedPair.blocksBuffer,
+            `${lastDistributedPair.label} (reparse)`,
+          )
+          log('Reparsed distributed pair with current signature policy.')
+          return
+        }
+        if (!lastXisfBuffer) {
+          log('Error: no XISF buffer loaded yet.')
+          return
+        }
+        await parseAndSummarizeXisf(lastXisfBuffer, 'Reparse')
+        log('Reparsed XISF with current signature policy.')
       } catch (error) {
         log(`Error: ${error instanceof Error ? error.message : String(error)}`)
       }
@@ -1014,6 +1171,7 @@
     resetPreview('No image loaded.')
     log('Ready.')
     log('Tip: click "Sample FITS → XISF" for a full in-browser conversion flow.')
+    log('Tip: adjust Signature Policy / Writer options in "Advanced Conversion".')
   </script>
 </body>
 </html>

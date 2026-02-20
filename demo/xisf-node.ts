@@ -2,26 +2,34 @@
  * fitsjs-ng XISF Node Demo
  *
  * Demonstrates:
- * 1) FITS -> XISF (monolithic and distributed)
- * 2) XISF parsing (monolithic and distributed/header+blocks)
- * 3) XISF -> FITS conversion
- * 4) Round-trip checks
+ * 1) FITS -> XISF (monolithic and distributed) -> FITS round-trip
+ * 2) XISF parsing entrypoints (ArrayBuffer / Blob / NodeBuffer-like)
+ * 3) Signature policy calls (offline)
+ * 4) Direct XISFWriter API
+ * 5) SER/HiPS bridge from XISF
  *
  * Run with: pnpm demo:xisf
  */
 
-import { mkdir, writeFile } from 'node:fs/promises'
-import { resolve } from 'node:path'
+import { mkdir, rm, writeFile } from 'node:fs/promises'
+import { join, resolve } from 'node:path'
 import './_setup'
 import {
   FITS,
+  NodeFSTarget,
+  SER,
   XISF,
   XISFWriter,
   convertFitsToXisf,
+  convertHiPSToXisf,
+  convertSerToXisf,
+  convertXisfToHiPS,
   convertXisfToFits,
+  convertXisfToSer,
   createImageBytesFromArray,
   createImageHDU,
   writeFITS,
+  writeSER,
 } from '../src/index'
 import type { XISFUnit } from '../src/index'
 
@@ -37,6 +45,13 @@ function separator(title: string): void {
   console.log(`\n${'═'.repeat(64)}`)
   console.log(`  ${title}`)
   console.log('═'.repeat(64))
+}
+
+function ok(name: string, details: Record<string, unknown>): void {
+  const summary = Object.entries(details)
+    .map(([key, value]) => `${key}=${String(value)}`)
+    .join(', ')
+  console.log(`[OK] ${name}: ${summary}`)
 }
 
 function buildSampleFits(width: number, height: number): ArrayBuffer {
@@ -69,32 +84,60 @@ function buildSampleFits(width: number, height: number): ArrayBuffer {
   return writeFITS([hdu])
 }
 
-async function demoFitsToXisfAndBack(): Promise<void> {
+function buildDemoSER(): ArrayBuffer {
+  const width = 4
+  const height = 2
+  const frames = [new Uint8Array(width * height), new Uint8Array(width * height)]
+  for (let i = 0; i < frames.length; i++) {
+    const frame = frames[i]!
+    for (let p = 0; p < frame.length; p++) frame[p] = (i * 50 + p * 7) & 0xff
+  }
+  const timestamps = [638000000000000000n, 638000000000100000n]
+  return writeSER({
+    header: {
+      colorId: 0,
+      width,
+      height,
+      pixelDepth: 8,
+      luId: 4200,
+      observer: 'xisf-node bridge demo',
+      instrument: 'virtual cam',
+      telescope: 'virtual scope',
+      startTime: timestamps[0],
+      startTimeUtc: timestamps[0],
+    },
+    frames,
+    timestamps,
+  })
+}
+
+async function demoFitsRoundTrip(): Promise<ArrayBuffer> {
   separator('1) FITS -> XISF (Monolithic) -> FITS')
 
   const fitsBuffer = buildSampleFits(64, 32)
   await writeFile(resolve(OUT_DIR, 'sample-input.fits'), new Uint8Array(fitsBuffer))
-  console.log('Wrote:', 'sample-input.fits')
+  ok('write', { file: 'sample-input.fits' })
 
   const xisfMonolithic = (await convertFitsToXisf(fitsBuffer)) as ArrayBuffer
   await writeFile(resolve(OUT_DIR, 'sample-output.xisf'), new Uint8Array(xisfMonolithic))
-  console.log('Wrote:', 'sample-output.xisf')
+  ok('write', { file: 'sample-output.xisf' })
 
   const parsedXisf = await XISF.fromArrayBuffer(xisfMonolithic)
   const firstImage = parsedXisf.getImage()
-  console.log(
-    `Parsed XISF image: geometry=${firstImage?.geometry.join('x')}, channels=${firstImage?.channelCount}, sampleFormat=${firstImage?.sampleFormat}`,
-  )
 
   const fitsBack = await convertXisfToFits(parsedXisf)
   await writeFile(resolve(OUT_DIR, 'sample-roundtrip.fits'), new Uint8Array(fitsBack))
-  console.log('Wrote:', 'sample-roundtrip.fits')
+  ok('write', { file: 'sample-roundtrip.fits' })
 
   const parsedFitsBack = FITS.fromArrayBuffer(fitsBack)
-  const bitpix = parsedFitsBack.getHeader()?.getNumber('BITPIX')
-  const naxis1 = parsedFitsBack.getHeader()?.getNumber('NAXIS1')
-  const naxis2 = parsedFitsBack.getHeader()?.getNumber('NAXIS2')
-  console.log(`Round-trip FITS header: BITPIX=${bitpix}, NAXIS1=${naxis1}, NAXIS2=${naxis2}`)
+  ok('FITS <-> XISF round-trip', {
+    sampleFormat: firstImage?.sampleFormat ?? 'n/a',
+    geometry: firstImage?.geometry.join('x') ?? 'n/a',
+    bitpix: parsedFitsBack.getHeader()?.getNumber('BITPIX') ?? 'n/a',
+    naxis1: parsedFitsBack.getHeader()?.getNumber('NAXIS1') ?? 'n/a',
+    naxis2: parsedFitsBack.getHeader()?.getNumber('NAXIS2') ?? 'n/a',
+  })
+  return xisfMonolithic
 }
 
 async function demoDistributedXisf(): Promise<void> {
@@ -109,33 +152,62 @@ async function demoDistributedXisf(): Promise<void> {
     },
   })) as { header: Uint8Array; blocks: Record<string, Uint8Array> }
 
-  const headerPath = resolve(OUT_DIR, 'distributed.xish')
-  const blocksPath = resolve(OUT_DIR, 'blocks.xisb')
-  await writeFile(headerPath, distributed.header)
-  await writeFile(blocksPath, distributed.blocks['blocks.xisb']!)
-  console.log('Wrote:', 'distributed.xish')
-  console.log('Wrote:', 'blocks.xisb')
+  await writeFile(resolve(OUT_DIR, 'distributed.xish'), distributed.header)
+  await writeFile(resolve(OUT_DIR, 'blocks.xisb'), distributed.blocks['blocks.xisb']!)
+  ok('write', { header: 'distributed.xish', blocks: 'blocks.xisb' })
 
   const parsedDistributed = await XISF.fromArrayBuffer(toArrayBuffer(distributed.header), {
     headerDir: OUT_DIR.replace(/\\/g, '/'),
   })
-  console.log(
-    `Parsed distributed XISF image count=${parsedDistributed.unit.images.length}, metadata=${parsedDistributed.unit.metadata.length}`,
-  )
-
   const fitsFromDistributed = await convertXisfToFits(parsedDistributed)
   await writeFile(resolve(OUT_DIR, 'distributed-to-fits.fits'), new Uint8Array(fitsFromDistributed))
-  console.log('Wrote:', 'distributed-to-fits.fits')
+  ok('distributed parse+export', {
+    images: parsedDistributed.unit.images.length,
+    metadata: parsedDistributed.unit.metadata.length,
+    fitsBytes: fitsFromDistributed.byteLength,
+  })
+}
+
+async function demoParsingEntryPoints(monolithic: ArrayBuffer): Promise<void> {
+  separator('3) XISF Parsing Entry Points + Signature Policy Calls')
+
+  const blobParsed = await XISF.fromBlob(new Blob([monolithic]))
+  const u8 = new Uint8Array(monolithic)
+  const nodeLikeParsed = await XISF.fromNodeBuffer({
+    buffer: u8.buffer,
+    byteOffset: u8.byteOffset,
+    byteLength: u8.byteLength,
+  })
+
+  const ignoreSig = await XISF.fromArrayBuffer(monolithic, {
+    verifySignatures: false,
+    signaturePolicy: 'ignore',
+  })
+  const warnings: string[] = []
+  const warnSig = await XISF.fromArrayBuffer(monolithic, {
+    verifySignatures: true,
+    signaturePolicy: 'warn',
+    onWarning: (warning) => warnings.push(`${warning.code}:${warning.message}`),
+  })
+
+  ok('parse entrypoints', {
+    fromBlobImages: blobParsed.unit.images.length,
+    fromNodeBufferImages: nodeLikeParsed.unit.images.length,
+    fromArrayBufferImages: ignoreSig.unit.images.length,
+  })
+  ok('signature options', {
+    ignorePolicyPresent: ignoreSig.unit.signature.present,
+    warnPolicyPresent: warnSig.unit.signature.present,
+    warnings: warnings.length,
+  })
 }
 
 async function demoDirectWriter(): Promise<void> {
-  separator('3) Direct XISFWriter API')
+  separator('4) Direct XISFWriter API')
 
   const raw = new Uint8Array(16)
   const view = new DataView(raw.buffer)
-  for (let i = 0; i < 8; i++) {
-    view.setUint16(i * 2, i * 257, true)
-  }
+  for (let i = 0; i < 8; i++) view.setUint16(i * 2, i * 257, true)
 
   const unit: XISFUnit = {
     metadata: [
@@ -176,21 +248,69 @@ async function demoDirectWriter(): Promise<void> {
 
   const monolithic = await XISFWriter.toMonolithic(unit, { compression: 'zlib' })
   await writeFile(resolve(OUT_DIR, 'writer-direct.xisf'), new Uint8Array(monolithic))
-  console.log('Wrote:', 'writer-direct.xisf')
+  ok('write', { file: 'writer-direct.xisf' })
 
   const parsed = await XISF.fromArrayBuffer(monolithic)
-  console.log(
-    `Parsed writer output metadata keys: ${parsed.unit.metadata.map((m) => m.id).join(', ')}`,
+  ok('writer parse', {
+    metadata: parsed.unit.metadata.map((m) => m.id).join('|'),
+    images: parsed.unit.images.length,
+  })
+}
+
+async function demoSerAndHipsBridge(): Promise<void> {
+  separator('5) XISF -> SER / HiPS Bridge')
+
+  const demoSer = buildDemoSER()
+  const xisfFromSer = (await convertSerToXisf(demoSer)) as ArrayBuffer
+  const serRoundTrip = await convertXisfToSer(xisfFromSer)
+  const parsedSerRoundTrip = SER.fromArrayBuffer(serRoundTrip)
+
+  await writeFile(resolve(OUT_DIR, 'bridge-from-ser.xisf'), new Uint8Array(xisfFromSer))
+  await writeFile(resolve(OUT_DIR, 'bridge-ser-roundtrip.ser'), new Uint8Array(serRoundTrip))
+
+  const bridgeDir = join(OUT_DIR, 'bridge-hips')
+  await rm(bridgeDir, { recursive: true, force: true })
+  await mkdir(bridgeDir, { recursive: true })
+  await convertXisfToHiPS(xisfFromSer, {
+    output: new NodeFSTarget(bridgeDir),
+    title: 'XISF bridge HiPS',
+    creatorDid: 'ivo://fitsjs-ng/demo/xisf-bridge',
+    hipsOrder: 2,
+    minOrder: 1,
+    tileWidth: 64,
+    formats: ['fits', 'png'],
+    includeAllsky: true,
+    includeMoc: true,
+  })
+  const cutoutXisf = await convertHiPSToXisf(bridgeDir, {
+    cutout: { width: 96, height: 48, ra: 0, dec: 0, fov: 2.5 },
+  })
+  await writeFile(
+    resolve(OUT_DIR, 'bridge-hips-cutout.xisf'),
+    new Uint8Array(cutoutXisf as ArrayBuffer),
   )
+  const parsedCutout = await XISF.fromArrayBuffer(cutoutXisf as ArrayBuffer)
+
+  ok('XISF <-> SER bridge', {
+    xisfBytes: xisfFromSer.byteLength,
+    serFrames: parsedSerRoundTrip.getFrameCount(),
+  })
+  ok('XISF -> HiPS -> XISF bridge', {
+    cutoutImages: parsedCutout.unit.images.length,
+    cutoutGeometry: parsedCutout.unit.images[0]?.geometry.join('x') ?? 'n/a',
+  })
 }
 
 async function main(): Promise<void> {
+  await rm(OUT_DIR, { recursive: true, force: true })
   await mkdir(OUT_DIR, { recursive: true })
   console.log('Output directory:', OUT_DIR)
 
-  await demoFitsToXisfAndBack()
+  const monolithic = await demoFitsRoundTrip()
   await demoDistributedXisf()
+  await demoParsingEntryPoints(monolithic)
   await demoDirectWriter()
+  await demoSerAndHipsBridge()
 
   separator('Done')
   console.log('XISF demo completed.')

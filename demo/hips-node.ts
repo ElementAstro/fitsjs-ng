@@ -10,9 +10,14 @@ import { mkdir, readdir, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import {
   HiPS,
+  HiPSProperties,
   NodeFSTarget,
+  XISF,
+  XISFWriter,
   convertFitsToHiPS,
   convertHiPSToFITS,
+  convertHiPSToXisf,
+  convertXisfToHiPS,
   createImageBytesFromArray,
   createImageHDU,
   lintHiPS,
@@ -49,6 +54,37 @@ function makeSampleFits(width: number, height: number): ArrayBuffer {
   return writeFITS([hdu])
 }
 
+async function makePlainXisfForBridge(): Promise<ArrayBuffer> {
+  const raw = new Uint8Array(4 * 4 * 2)
+  const view = new DataView(raw.buffer)
+  for (let i = 0; i < 16; i++) view.setUint16(i * 2, i * 257, true)
+  return XISFWriter.toMonolithic({
+    metadata: [{ id: 'XISF:CreatorApplication', type: 'String', value: 'hips-node bridge' }],
+    images: [
+      {
+        id: 'BRIDGE_IMG',
+        geometry: [4, 4],
+        channelCount: 1,
+        sampleFormat: 'UInt16',
+        pixelStorage: 'Planar',
+        colorSpace: 'Gray',
+        dataBlock: {
+          location: { type: 'attachment', position: 0, size: raw.byteLength },
+          byteOrder: 'little',
+        },
+        data: raw,
+        properties: [],
+        tables: [],
+        fitsKeywords: [],
+      },
+    ],
+    standaloneProperties: [],
+    standaloneTables: [],
+    version: '1.0',
+    signature: { present: false, verified: true },
+  })
+}
+
 async function findFirstTile(root: string): Promise<{ order: number; ipix: number } | null> {
   const stack = [root]
   while (stack.length > 0) {
@@ -61,12 +97,23 @@ async function findFirstTile(root: string): Promise<{ order: number; ipix: numbe
         continue
       }
       const match = /Norder(\d+)[\\/]+Dir\d+[\\/]+Npix(\d+)\.(fits|png|jpg)$/iu.exec(full)
-      if (match) {
-        return { order: Number(match[1]), ipix: Number(match[2]) }
-      }
+      if (match) return { order: Number(match[1]), ipix: Number(match[2]) }
     }
   }
   return null
+}
+
+function section(title: string): void {
+  console.log(`\n${'═'.repeat(64)}`)
+  console.log(`  ${title}`)
+  console.log('═'.repeat(64))
+}
+
+function ok(name: string, details: Record<string, unknown>): void {
+  const summary = Object.entries(details)
+    .map(([key, value]) => `${key}=${String(value)}`)
+    .join(', ')
+  console.log(`[OK] ${name}: ${summary}`)
 }
 
 async function main() {
@@ -80,7 +127,7 @@ async function main() {
   const fits = makeSampleFits(256, 128)
   const target = new NodeFSTarget(outRoot)
 
-  console.log('\n1) FITS -> HiPS')
+  section('1) FITS -> HiPS')
   const build = await convertFitsToHiPS(fits, {
     output: target,
     title: 'fitsjs-ng HiPS Demo',
@@ -93,17 +140,22 @@ async function main() {
     includeAllsky: true,
     includeIndexHtml: true,
   })
-  console.log('Generated tiles:', build.generatedTiles)
-  console.log('Orders:', `${build.minOrder}..${build.maxOrder}`)
+  ok('build', {
+    generatedTiles: build.generatedTiles,
+    orderRange: `${build.minOrder}..${build.maxOrder}`,
+  })
 
-  console.log('\n2) Lint HiPS')
+  section('2) Lint HiPS')
   const lint = await lintHiPS(outRoot)
-  console.log('Lint ok:', lint.ok)
+  ok('lint', {
+    ok: lint.ok,
+    issues: lint.issues.length,
+  })
   for (const issue of lint.issues) {
     console.log(`- [${issue.level}] ${issue.code}: ${issue.message}`)
   }
 
-  console.log('\n3) HiPS -> FITS (tile/map/cutout)')
+  section('3) HiPS -> FITS (tile/map/cutout)')
   const firstTile = await findFirstTile(outRoot)
   if (!firstTile) throw new Error('No tile generated')
 
@@ -127,13 +179,90 @@ async function main() {
   await writeFile(join(outRoot, 'demo-tile.fits'), new Uint8Array(tileFits))
   await writeFile(join(outRoot, 'demo-map.fits'), new Uint8Array(mapFits))
   await writeFile(join(outRoot, 'demo-cutout.fits'), new Uint8Array(cutoutFits))
-  console.log('Wrote demo-tile.fits / demo-map.fits / demo-cutout.fits')
+  ok('export fits', {
+    tileBytes: tileFits.byteLength,
+    mapBytes: mapFits.byteLength,
+    cutoutBytes: cutoutFits.byteLength,
+  })
 
-  console.log('\n4) HiPS class usage')
+  section('4) HiPS class usage')
   const hips = await HiPS.open(outRoot)
   const props = await hips.getProperties()
-  console.log('HiPS title:', props.get('obs_title'))
-  console.log('HiPS formats:', (await hips.tileFormats()).join(', '))
+  const tileFormats = await hips.tileFormats()
+  const tileDecoded = await hips.readTile({
+    order: firstTile.order,
+    ipix: firstTile.ipix,
+    format: tileFormats[0],
+  })
+  const allskyFits = await hips.readAllsky('fits')
+  ok('readers', {
+    title: props.get('obs_title') ?? 'n/a',
+    formats: tileFormats.join('|'),
+    tileShape: `${tileDecoded.width}x${tileDecoded.height}x${tileDecoded.depth}`,
+    allskyBytes: allskyFits.byteLength,
+  })
+
+  section('5) HiPSProperties API')
+  const propsText = await target.readText('properties')
+  const parsedProps = HiPSProperties.parse(propsText)
+  const report = parsedProps.validate()
+  const compatText = parsedProps.withCompatibilityFields().toString()
+  const fromObject = HiPSProperties.fromObject({
+    creator_did: 'ivo://fitsjs-ng/demo/object',
+    obs_title: 'fromObject demo',
+    dataproduct_type: 'image',
+    hips_version: '1.4',
+    hips_frame: 'equatorial',
+    hips_order: 2,
+    hips_tile_width: 64,
+    hips_tile_format: 'fits png',
+  })
+  const fromObjectReport = fromObject.validate()
+  ok('properties methods', {
+    parsedKeys: parsedProps.keys().length,
+    validateOk: report.ok,
+    compatLines: compatText.split('\n').filter(Boolean).length,
+    fromObjectOk: fromObjectReport.ok,
+  })
+
+  section('6) XISF Bridge (XISF -> HiPS -> XISF cutout/map)')
+  const bridgeRoot = join(outRoot, 'xisf-bridge')
+  await rm(bridgeRoot, { recursive: true, force: true })
+  await mkdir(bridgeRoot, { recursive: true })
+  const xisfInput = await makePlainXisfForBridge()
+
+  await convertXisfToHiPS(xisfInput, {
+    output: new NodeFSTarget(bridgeRoot),
+    title: 'fitsjs-ng XISF bridge',
+    creatorDid: 'ivo://fitsjs-ng/demo/xisf-bridge',
+    hipsOrder: 2,
+    minOrder: 1,
+    tileWidth: 64,
+    formats: ['fits', 'png'],
+    includeAllsky: true,
+    includeMoc: true,
+  })
+  const cutoutXisf = await convertHiPSToXisf(bridgeRoot, {
+    cutout: { width: 128, height: 64, ra: 0, dec: 0, fov: 1.5 },
+  })
+  const mapXisf = await convertHiPSToXisf(bridgeRoot, {
+    map: { order: 1, ordering: 'NESTED' },
+  })
+  await writeFile(join(outRoot, 'bridge-cutout.xisf'), new Uint8Array(cutoutXisf as ArrayBuffer))
+  await writeFile(join(outRoot, 'bridge-map.xisf'), new Uint8Array(mapXisf as ArrayBuffer))
+
+  const cutoutParsed = await XISF.fromArrayBuffer(cutoutXisf as ArrayBuffer)
+  const mapParsed = await XISF.fromArrayBuffer(mapXisf as ArrayBuffer)
+  ok('bridge outputs', {
+    cutoutImages: cutoutParsed.unit.images.length,
+    cutoutGeometry: cutoutParsed.unit.images[0]?.geometry.join('x') ?? 'n/a',
+    mapImages: mapParsed.unit.images.length,
+  })
+
+  section('7) Remote backend note')
+  console.log(
+    'Optional remote cutout: pass backend="auto|remote" with hipsId in convertHiPSToFITS. This demo remains offline by default.',
+  )
 
   console.log('\nDone.')
 }

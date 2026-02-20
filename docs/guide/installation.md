@@ -2,38 +2,48 @@
 
 ## As a Dependency
 
-Install the library in your project:
+Install `fitsjs-ng` in your project:
 
 ::: code-group
 
 ```bash [pnpm]
-pnpm add typescript-quick-starter
+pnpm add fitsjs-ng
 ```
 
 ```bash [npm]
-npm install typescript-quick-starter
+npm install fitsjs-ng
 ```
 
 ```bash [yarn]
-yarn add typescript-quick-starter
+yarn add fitsjs-ng
 ```
 
 :::
 
-## Usage
+## Runtime Requirements
 
-### ESM
+- Node.js `>= 18`
+- Modern browsers with `fetch`, typed arrays, and ES modules
+
+## Import Examples
+
+### ESM (recommended)
 
 ```ts
-import { greet } from 'typescript-quick-starter'
-
-console.log(greet('World')) // Hello, World!
+import { FITS, XISF, SER, convertFitsToXisf } from 'fitsjs-ng'
 ```
 
 ### CommonJS
 
 ```js
-const { greet } = require('typescript-quick-starter')
+const { FITS, XISF, SER, convertFitsToXisf } = require('fitsjs-ng')
+```
 
-console.log(greet('World')) // Hello, World!
+## Minimal Smoke Test
+
+```ts
+import { FITS } from 'fitsjs-ng'
+
+const fits = FITS.fromArrayBuffer(buffer)
+console.log(fits.getHeader()?.get('BITPIX'))
 ```

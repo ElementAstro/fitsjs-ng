@@ -4,15 +4,15 @@ This matrix tracks conformance and interoperability targets for FITS, XISF, and 
 
 ## FITS
 
-| Capability                            | Status | Notes                                                         |
-| ------------------------------------- | ------ | ------------------------------------------------------------- |
-| FITS 4.0 image read/write core        | ✅     | BITPIX 8/16/32/64/-32/-64, BSCALE/BZERO handling              |
-| Multiple HDU parsing                  | ✅     | Primary + extension HDUs                                      |
-| Binary/ASCII table support            | ✅     | Standard TFORM/TBCOL handling                                 |
-| Tiled image compression `RICE_1`      | ✅     | Full decode path                                              |
-| Tiled image compression `GZIP_1`      | ✅     | Decode support in `CompressedImage`                           |
-| Tiled image compression `PLIO_1`      | ⚠️     | Header accepted; decode path emits explicit unsupported error |
-| Tiled image compression `HCOMPRESS_1` | ⚠️     | Header accepted; decode path emits explicit unsupported error |
+| Capability                            | Status | Notes                                               |
+| ------------------------------------- | ------ | --------------------------------------------------- |
+| FITS 4.0 image read/write core        | ✅     | BITPIX 8/16/32/64/-32/-64, BSCALE/BZERO handling    |
+| Multiple HDU parsing                  | ✅     | Primary + extension HDUs                            |
+| Binary/ASCII table support            | ✅     | Standard TFORM/TBCOL handling                       |
+| Tiled image compression `RICE_1`      | ✅     | Full decode path                                    |
+| Tiled image compression `GZIP_1`      | ✅     | Decode support in `CompressedImage`                 |
+| Tiled image compression `PLIO_1`      | ✅     | Decode support with malformed-payload safety checks |
+| Tiled image compression `HCOMPRESS_1` | ✅     | Decode support with malformed-stream safety checks  |
 
 ## XISF 1.0
 
@@ -51,7 +51,8 @@ This matrix tracks conformance and interoperability targets for FITS, XISF, and 
 
 - Standards fixtures live under `test/fixtures/standards/`
 - Conversion round-trips are covered by:
-  - `test/convert.test.ts`
-  - `test/hips-convert.test.ts`
-  - `test/hips-xisf-convert.test.ts`
-  - `test/xisf-codec.test.ts`
+  - `test/xisf/convert.test.ts`
+  - `test/hips/hips-convert.test.ts`
+  - `test/hips/hips-xisf-convert.test.ts`
+  - `test/ser/ser-convert.test.ts`
+  - `test/xisf/xisf-codec.test.ts`
