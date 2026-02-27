@@ -44,7 +44,7 @@ importers:
         version: 20.4.1
       '@eslint/js':
         specifier: ^9.0.0
-        version: 9.0.0
+        version: 9.39.3
       '@size-limit/preset-small-lib':
         specifier: ^11.2.0
         version: 11.2.0(size-limit@11.2.0)
@@ -755,6 +755,10 @@ packages:
 
   '@eslint/js@9.0.0':
     resolution: {integrity: sha512-RThY/MnKrhubF6+s1JflwUjPEsnCEmYCWwqa/aRISKWNXGZ9epUwft4bUMM35SdKF9xvBrLydAM1RDHd1Z//ZQ==}
+    engines: {node: ^18.18.0 || ^20.9.0 || >=21.1.0}
+
+  '@eslint/js@9.39.3':
+    resolution: {integrity: sha512-1B1VkCq6FuUNlQvlBYb+1jDu/gV297TIs/OeiaSR9l1H27SVW55ONE1e1Vp16NqP683+xEGzxYtv4XCiDPaQiw==}
     engines: {node: ^18.18.0 || ^20.9.0 || >=21.1.0}
 
   '@fxpineau/moc-wasm@0.11.0':
@@ -3021,6 +3025,8 @@ snapshots:
       - supports-color
 
   '@eslint/js@9.0.0': {}
+
+  '@eslint/js@9.39.3': {}
 
   '@fxpineau/moc-wasm@0.11.0': {}
 
