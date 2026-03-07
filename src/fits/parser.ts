@@ -7,24 +7,30 @@ import { BinaryTable } from './binary-table'
 import { CompressedImage } from './compressed-image'
 import { excessBytes, uint8ArrayToString } from '../core/utils'
 import type { DataUnit } from './data-unit'
-import type { DataUnitType, ReadOptions } from '../core/types'
+import type { BlobSource, DataUnitType, ReadOptions } from '../core/types'
 
 /**
  * Data unit factory: creates the appropriate data unit subclass based on header info.
  */
-function createDataUnit(header: Header, data: ArrayBuffer | Blob): DataUnit | undefined {
+function createDataUnit(
+  header: Header,
+  data: ArrayBuffer | BlobSource | ArrayBufferView,
+  options?: ReadOptions,
+): DataUnit | undefined {
   const type: DataUnitType | null = header.getDataType()
   if (!type) return undefined
 
   switch (type) {
     case 'Image':
-      return new Image(header, data)
+      return new Image(header, data, {
+        frameCacheMaxFrames: options?.imageFrameCacheMaxFrames,
+      })
     case 'BinaryTable':
-      return new BinaryTable(header, data)
+      return new BinaryTable(header, data as ArrayBuffer | BlobSource)
     case 'Table':
-      return new Table(header, data)
+      return new Table(header, data as ArrayBuffer | BlobSource)
     case 'CompressedImage':
-      return new CompressedImage(header, data)
+      return new CompressedImage(header, data as ArrayBuffer | BlobSource)
     default:
       return undefined
   }
@@ -41,25 +47,34 @@ function createDataUnit(header: Header, data: ArrayBuffer | Blob): DataUnit | un
  * @returns Array of parsed HDUs.
  */
 export function parseBuffer(buffer: ArrayBuffer, options?: ReadOptions): HDU[] {
+  return parseBytes(new Uint8Array(buffer), options)
+}
+
+/**
+ * Parse a FITS file from an in-memory bytes view.
+ *
+ * This is similar to parseBuffer(), but accepts a Uint8Array so callers can opt into
+ * view-based storage (zero-copy) for supported data unit types.
+ */
+export function parseBytes(bytes: Uint8Array, options?: ReadOptions): HDU[] {
   const hdus: HDU[] = []
-  const totalLength = buffer.byteLength
+  const totalLength = bytes.byteLength
   let offset = 0
+
+  const storage = options?.dataUnitStorage ?? 'copy'
+  const warn = options?.onWarning ?? console.warn
+  const warnedFallbackTypes = new Set<DataUnitType>()
 
   while (offset < totalLength) {
     // --- Read header blocks ---
     let blockCount = 0
-    let headerStorage = new Uint8Array(0)
+    const headerChunks: Uint8Array[] = []
     let headerFound = false
 
     while (!headerFound && offset + blockCount * BLOCK_LENGTH + BLOCK_LENGTH <= totalLength) {
       const blockStart = offset + blockCount * BLOCK_LENGTH
-      const blockBytes = new Uint8Array(buffer, blockStart, BLOCK_LENGTH)
-
-      // Expand header storage
-      const newStorage = new Uint8Array(headerStorage.length + BLOCK_LENGTH)
-      newStorage.set(headerStorage, 0)
-      newStorage.set(blockBytes, headerStorage.length)
-      headerStorage = newStorage
+      const blockBytes = bytes.subarray(blockStart, blockStart + BLOCK_LENGTH)
+      headerChunks.push(blockBytes)
 
       // Check block for END keyword (scanning rows bottom-up)
       const rows = BLOCK_LENGTH / LINE_WIDTH
@@ -91,7 +106,13 @@ export function parseBuffer(buffer: ArrayBuffer, options?: ReadOptions): HDU[] {
         continue
       }
 
-      // Parse header string
+      // Assemble header string from chunks
+      const headerStorage = new Uint8Array(headerChunks.length * BLOCK_LENGTH)
+      let headerPos = 0
+      for (const chunk of headerChunks) {
+        headerStorage.set(chunk, headerPos)
+        headerPos += chunk.length
+      }
       const headerString = uint8ArrayToString(headerStorage)
       const header = new Header(headerString, options?.maxHeaderLines, options?.onWarning)
 
@@ -100,12 +121,26 @@ export function parseBuffer(buffer: ArrayBuffer, options?: ReadOptions): HDU[] {
       const dataLength = header.getDataLength()
 
       // Slice data unit bytes
-      const dataSlice = buffer.slice(headerEnd, headerEnd + dataLength)
+      const type: DataUnitType | null = header.getDataType()
+
+      let dataSlice: ArrayBuffer | Uint8Array
+      if (storage === 'view' && type === 'Image') {
+        // Zero-copy view into the original input bytes
+        dataSlice = bytes.subarray(headerEnd, headerEnd + dataLength)
+      } else {
+        if (storage === 'view' && type && type !== 'Image' && !warnedFallbackTypes.has(type)) {
+          warnedFallbackTypes.add(type)
+          warn(
+            `dataUnitStorage=view is currently supported only for Image; falling back to copy for ${type}`,
+          )
+        }
+        dataSlice = bytes.slice(headerEnd, headerEnd + dataLength).buffer
+      }
 
       // Create data unit if header indicates one
       let dataunit: DataUnit | undefined
       if (header.hasDataUnit()) {
-        dataunit = createDataUnit(header, dataSlice)
+        dataunit = createDataUnit(header, dataSlice, options)
       }
 
       // Store HDU
@@ -130,16 +165,16 @@ export function parseBuffer(buffer: ArrayBuffer, options?: ReadOptions): HDU[] {
 }
 
 /**
- * Parse a FITS file from a Blob (File object) using streaming block reads.
+ * Parse a FITS file from a blob-like source using streaming block reads.
  *
  * Reads header blocks incrementally (2880 bytes at a time) without loading
  * the entire file into memory. Data units are kept as Blob slices for
  * lazy on-demand reading, significantly reducing memory usage for large files.
  *
- * @param blob - The FITS file as a Blob or File object.
+ * @param blob - The FITS file as a Blob-like source.
  * @returns Promise resolving to an array of parsed HDUs.
  */
-export async function parseBlob(blob: Blob, options?: ReadOptions): Promise<HDU[]> {
+export async function parseBlob(blob: BlobSource, options?: ReadOptions): Promise<HDU[]> {
   const hdus: HDU[] = []
   const totalLength = blob.size
   let offset = 0
@@ -204,7 +239,7 @@ export async function parseBlob(blob: Blob, options?: ReadOptions): Promise<HDU[
       let dataunit: DataUnit | undefined
       if (header.hasDataUnit()) {
         const dataBlob = blob.slice(headerEnd, headerEnd + dataLength)
-        dataunit = createDataUnit(header, dataBlob)
+        dataunit = createDataUnit(header, dataBlob, options)
       }
 
       hdus.push(new HDU(header, dataunit))

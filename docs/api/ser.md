@@ -12,8 +12,9 @@ Main entry point for reading SER v3 image sequences.
 
 ```ts
 static fromArrayBuffer(buffer: ArrayBuffer, options?: SERReadOptions): SER
+static fromBytes(bytes: Uint8Array, options?: SERReadOptions): SER
 static fromBlob(blob: Blob, options?: SERReadOptions): Promise<SER>
-static fromURL(url: string, options?: SERReadOptions & { requestInit?: RequestInit }): Promise<SER>
+static fromURL(url: string, options?: SERReadOptions): Promise<SER>
 static fromNodeBuffer(buffer: NodeBufferLike, options?: SERReadOptions): SER
 ```
 
@@ -22,9 +23,13 @@ static fromNodeBuffer(buffer: NodeBufferLike, options?: SERReadOptions): SER
 ```ts
 getHeader(): SERHeader
 getFrameCount(): number
-getFrame(index: number, options?: { asRGB?: boolean }): SERFrameData
+getFrame(index: number, options?: { asRGB?: boolean; frameStorage?: SERFrameStorage }): SERFrameData
 getFrameRGB(index: number): Uint8Array | Uint16Array
-getFrames(startFrame: number, count: number, options?: { asRGB?: boolean }): SERFrameData[]
+getFrames(
+  startFrame: number,
+  count: number,
+  options?: { asRGB?: boolean; frameStorage?: SERFrameStorage },
+): SERFrameData[]
 getTimestamp(index: number): bigint | undefined
 getTimestampDate(index: number): Date | undefined
 getDurationTicks(): bigint | undefined
@@ -38,6 +43,7 @@ async *[Symbol.asyncIterator](): AsyncIterableIterator<SERFrameData>
 ## Parser / Writer
 
 ```ts
+parseSERBytes(bytes: Uint8Array, options?: SERReadOptions): SERParsedFile
 parseSERBuffer(buffer: ArrayBuffer, options?: SERReadOptions): SERParsedFile
 parseSERBlob(blob: Blob, options?: SERReadOptions): Promise<SERParsedFile>
 writeSER(input: SERWriteInput, options?: SERWriteOptions): ArrayBuffer
@@ -84,11 +90,17 @@ interface XisfToSerOptions {
 type SERColorId = 0 | 8 | 9 | 10 | 11 | 16 | 17 | 18 | 19 | 100 | 101
 type SEREndiannessPolicy = 'compat' | 'spec' | 'auto'
 type SERByteOrder = 'little' | 'big'
+type SERFrameStorage = 'copy' | 'view'
 
 interface SERReadOptions {
   strictValidation?: boolean
   endiannessPolicy?: SEREndiannessPolicy
+  frameStorage?: SERFrameStorage
   onWarning?: SERWarningCallback
+  requestInit?: RequestInit
+  timeoutMs?: number
+  retryCount?: number
+  retryDelayMs?: number
 }
 
 interface SERWriteOptions {

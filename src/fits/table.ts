@@ -1,6 +1,6 @@
 import { Tabular } from './tabular'
 import type { Header } from './header'
-import type { TableRow } from '../core/types'
+import type { BlobSource, TableRow } from '../core/types'
 import { uint8ArrayToString } from '../core/utils'
 
 /**
@@ -29,7 +29,7 @@ export class Table extends Tabular {
   /** Whether TBCOL keywords were found in the header. */
   private hasTBCOL = false
 
-  constructor(header: Header, data: ArrayBuffer | Blob) {
+  constructor(header: Header, data: ArrayBuffer | BlobSource) {
     super(header, data)
     this.initAccessors(header)
   }

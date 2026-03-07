@@ -500,6 +500,10 @@
     let lastDistributedPair = null
     let lastPreview = null
     let lastPreviewLabel = 'Loaded XISF'
+    const XISF_LAZY_READ_OPTIONS = Object.freeze({
+      decodeImageData: false,
+      imageDataCacheMaxEntries: 0,
+    })
 
     function now() {
       return new Date().toLocaleTimeString()
@@ -698,8 +702,8 @@
       }
     }
 
-    function extractXisfChannel(image, channelIndex = 0, sliceIndex = 0) {
-      if (!image?.data) return null
+    function extractXisfChannel(image, imageData, channelIndex = 0, sliceIndex = 0) {
+      if (!imageData) return null
 
       const { width, height, slices } = getImageDimensions(image)
       if (channelIndex < 0 || channelIndex >= image.channelCount) return null
@@ -709,7 +713,7 @@
       const totalPixelsAcrossSlices = pixelCount * slices
       const bytesPerSample = sampleByteSize(image.sampleFormat)
       const littleEndian = image.dataBlock.byteOrder !== 'big'
-      const view = new DataView(image.data.buffer, image.data.byteOffset, image.data.byteLength)
+      const view = new DataView(imageData.buffer, imageData.byteOffset, imageData.byteLength)
       const values = new Float64Array(pixelCount)
 
       for (let i = 0; i < pixelCount; i++) {
@@ -782,14 +786,21 @@
       }
     }
 
-    function renderXisfImagePreview(parsed, label, imageIndex, channelMode, sliceIndex) {
+    async function renderXisfImagePreview(parsed, label, imageIndex, channelMode, sliceIndex) {
       const image = parsed.getImage(imageIndex)
       if (!image) {
         resetPreview('No image available in this XISF.')
         return
       }
-      if (!image.data) {
-        resetPreview('Image data is not decoded.')
+      let imageData
+      try {
+        imageData = await parsed.getImageData(imageIndex, { cache: false })
+      } catch (error) {
+        resetPreview('Failed to lazy-load image data.')
+        throw error
+      }
+      if (!imageData) {
+        resetPreview('Image data is unavailable.')
         return
       }
 
@@ -798,11 +809,12 @@
       const selectedMode = channelMode ?? 'ch:0'
 
       if (selectedMode === 'rgb' && image.colorSpace === 'RGB' && image.channelCount >= 3) {
-        const red = extractXisfChannel(image, 0, selectedSlice)
-        const green = extractXisfChannel(image, 1, selectedSlice)
-        const blue = extractXisfChannel(image, 2, selectedSlice)
+        const red = extractXisfChannel(image, imageData, 0, selectedSlice)
+        const green = extractXisfChannel(image, imageData, 1, selectedSlice)
+        const blue = extractXisfChannel(image, imageData, 2, selectedSlice)
         if (!red || !green || !blue) {
           resetPreview('Failed to decode RGB channels.')
+          parsed.releaseImageData(imageIndex)
           return
         }
         const rr = finiteRange(red.values)
@@ -825,13 +837,15 @@
           blue: blue.values,
           baseInfo,
         }
+        parsed.releaseImageData(imageIndex)
         return
       }
 
       const channelIndex = clampInt(Number.parseInt(String(selectedMode).replace('ch:', ''), 10), 0, image.channelCount - 1)
-      const mono = extractXisfChannel(image, channelIndex, selectedSlice)
+      const mono = extractXisfChannel(image, imageData, channelIndex, selectedSlice)
       if (!mono) {
         resetPreview('Failed to decode image channel.')
+        parsed.releaseImageData(imageIndex)
         return
       }
 
@@ -853,9 +867,10 @@
         values: mono.values,
         baseInfo,
       }
+      parsed.releaseImageData(imageIndex)
     }
 
-    function renderPreviewFromControls(label) {
+    async function renderPreviewFromControls(label) {
       if (!lastXisf) {
         resetPreview('No image loaded.')
         return
@@ -868,7 +883,7 @@
       }
       const channelMode = selectedPreviewChannelMode(image)
       const sliceIndex = selectedPreviewSliceIndex(image)
-      renderXisfImagePreview(lastXisf, label, imageIndex, channelMode, sliceIndex)
+      await renderXisfImagePreview(lastXisf, label, imageIndex, channelMode, sliceIndex)
     }
 
     function makeSampleFits(width = 72, height = 48) {
@@ -928,15 +943,26 @@
         Geometry: geometry,
         'Output Bytes': outputBytes,
       })
-      renderPreviewFromControls(label)
+      await renderPreviewFromControls(label)
       log(`Parsed XISF (${label}): images=${parsed.unit.images.length}, metadata=${parsed.unit.metadata.length}`)
       return parsed
+    }
+
+    async function prepareDecodedImagesForConversion(parsed) {
+      for (let i = 0; i < parsed.unit.images.length; i++) {
+        const image = parsed.getImage(i)
+        if (!image) continue
+        if (!image.data) {
+          image.data = await parsed.getImageData(i, { cache: true })
+        }
+      }
     }
 
     async function parseAndSummarizeXisf(buffer, label) {
       const warnings = []
       const { verifySignatures, signaturePolicy } = readPolicyFromUI()
       const parsed = await XISF.fromArrayBuffer(buffer, {
+        ...XISF_LAZY_READ_OPTIONS,
         verifySignatures,
         signaturePolicy,
         onWarning: (warning) => warnings.push(warning),
@@ -944,6 +970,7 @@
       if (warnings.length > 0) {
         log(`XISF warnings (${label}): ${warnings.map((w) => w.code).join(', ')}`)
       }
+      log(`Low-memory mode: decodeImageData=false (lazy preview loading)`)
       return summarizeParsedXisf(parsed, `${label} [sig:${signaturePolicy},verify:${verifySignatures}]`, buffer.byteLength)
     }
 
@@ -951,6 +978,7 @@
       const warnings = []
       const { verifySignatures, signaturePolicy } = readPolicyFromUI()
       const parsed = await XISF.fromArrayBuffer(headerBuffer, {
+        ...XISF_LAZY_READ_OPTIONS,
         headerDir: '/demo/web',
         verifySignatures,
         signaturePolicy,
@@ -1065,7 +1093,9 @@
       lastDistributedPair = null
       parseAndSummarizeXisf(buffer, file.name)
         .then(async (parsed) => {
+          await prepareDecodedImagesForConversion(parsed)
           const fits = await convertXisfToFits(parsed)
+          parsed.releaseImageData()
           log(`Converted XISF -> FITS, bytes=${fits.byteLength}`)
           $('#btn-write-mono').disabled = false
           $('#btn-write-dist').disabled = false
@@ -1088,7 +1118,9 @@
         lastDistributedPair = { headerBuffer, blocksBuffer, label: `${headerFile.name} + ${blocksFile.name}` }
         const label = `${headerFile.name} + ${blocksFile.name}`
         const parsed = await loadDistributedXisf(headerBuffer, blocksBuffer, label)
+        await prepareDecodedImagesForConversion(parsed)
         const fits = await convertXisfToFits(parsed)
+        parsed.releaseImageData()
         log(`Distributed XISF -> FITS, bytes=${fits.byteLength}`)
         $('#btn-write-mono').disabled = false
         $('#btn-write-dist').disabled = false
@@ -1133,17 +1165,17 @@
       if (!image) return
       populatePreviewChannelOptions(image, null)
       populatePreviewSliceOptions(image, 0)
-      renderPreviewFromControls(lastPreviewLabel)
+      renderPreviewFromControls(lastPreviewLabel).catch((error) => log(`Error: ${error instanceof Error ? error.message : String(error)}`))
     })
 
     previewChannelEl.addEventListener('change', () => {
       if (!lastXisf) return
-      renderPreviewFromControls(lastPreviewLabel)
+      renderPreviewFromControls(lastPreviewLabel).catch((error) => log(`Error: ${error instanceof Error ? error.message : String(error)}`))
     })
 
     previewSliceEl.addEventListener('change', () => {
       if (!lastXisf) return
-      renderPreviewFromControls(lastPreviewLabel)
+      renderPreviewFromControls(lastPreviewLabel).catch((error) => log(`Error: ${error instanceof Error ? error.message : String(error)}`))
     })
 
     previewCanvasEl.addEventListener('mousemove', (event) => {

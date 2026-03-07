@@ -1,6 +1,6 @@
 {
   "name": "fitsjs-ng",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Modern TypeScript library for reading and writing FITS/XISF astronomical files",
   "type": "module",
   "main": "./dist/index.cjs",
@@ -60,6 +60,9 @@
     "demo:hips": "tsx demo/hips-node.ts",
     "demo:xisf": "tsx demo/xisf-node.ts",
     "demo:ser": "tsx demo/ser-node.ts",
+    "demo:perf": "tsx demo/perf-fits.ts",
+    "demo:perf:loading": "tsx demo/perf-loading.ts",
+    "demo:perf:ser": "tsx demo/perf-ser.ts",
     "demo:web": "pnpm run build && pnpm dlx serve ."
   },
   "keywords": [

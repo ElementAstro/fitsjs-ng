@@ -12,6 +12,7 @@
 ```ts
 import {
   SER,
+  parseSERBytes,
   parseSERBuffer,
   parseSERBlob,
   convertSerToFits,
@@ -21,10 +22,13 @@ import {
 } from 'fitsjs-ng'
 
 const ser = SER.fromArrayBuffer(buffer)
+const serFast = SER.fromBytes(new Uint8Array(buffer))
+const parsedBytes = parseSERBytes(new Uint8Array(buffer))
 const parsed = parseSERBuffer(buffer)
 const parsedBlob = await parseSERBlob(new Blob([buffer]))
 
 const firstFrame = ser.getFrame(0)
+const firstFrameView = serFast.getFrame(0, { frameStorage: 'view' })
 const firstRGB = ser.getFrameRGB(0)
 
 const fits = await convertSerToFits(buffer)
@@ -38,6 +42,11 @@ const serFromXisf = await convertXisfToSer(xisf as ArrayBuffer)
 Use parser helpers when you need structured metadata/offset information directly:
 
 ```ts
+const parsedFromBytes = parseSERBytes(new Uint8Array(buffer), {
+  strictValidation: true,
+  endiannessPolicy: 'compat',
+})
+
 const parsed = parseSERBuffer(buffer, {
   strictValidation: true,
   endiannessPolicy: 'compat',
@@ -48,6 +57,23 @@ const parsedFromBlob = await parseSERBlob(blob, {
   endiannessPolicy: 'auto',
 })
 ```
+
+## Frame Storage Mode
+
+`SER` supports two frame storage modes:
+
+- `copy` (default for `fromArrayBuffer`/`fromBlob`/`fromURL`/`fromNodeBuffer`)
+- `view` (default for `fromBytes`)
+
+```ts
+const serCopy = SER.fromArrayBuffer(buffer) // default copy mode
+const serView = SER.fromBytes(new Uint8Array(buffer)) // default view mode
+
+const frameCopy = serView.getFrame(0, { frameStorage: 'copy' }) // per-call override
+const frameView = serView.getFrame(0, { frameStorage: 'view' })
+```
+
+When using `view`, frame data may reference the original byte source. Do not mutate source bytes after parsing.
 
 ## Sequence Metrics
 

@@ -110,21 +110,21 @@ function resolveFrameCountRelaxed(
   return Math.max(0, Math.min(declaredFrameCount, Math.max(byFrameAndTs, 1), byFrameOnly))
 }
 
-function parseFromArrayBuffer(
-  buffer: ArrayBuffer,
+function parseFromBytes(
+  bytes: Uint8Array,
   options?: SERReadOptions,
   sourceBlob?: Blob,
+  sourceBuffer?: ArrayBuffer,
 ): SERParsedFile {
   const cfg = withDefaults(options)
-  const bytes = new Uint8Array(buffer)
   if (bytes.byteLength < SER_HEADER_LENGTH) {
     throw new SERParseError(
       `SER buffer is too short: expected at least ${SER_HEADER_LENGTH} bytes, got ${bytes.byteLength}`,
     )
   }
 
-  const view = new DataView(buffer)
-  const fileId = readFixedAscii(bytes.slice(0, 14))
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
+  const fileId = readFixedAscii(bytes.subarray(0, 14))
   if (fileId !== SER_FILE_ID) {
     throw new SERParseError(`Invalid SER FileID: expected "${SER_FILE_ID}", got "${fileId}"`)
   }
@@ -136,9 +136,9 @@ function parseFromArrayBuffer(
   const height = view.getInt32(30, true)
   const pixelDepth = view.getInt32(34, true)
   const declaredFrameCount = view.getInt32(38, true)
-  const observer = readFixedAscii(bytes.slice(42, 82))
-  const instrument = readFixedAscii(bytes.slice(82, 122))
-  const telescope = readFixedAscii(bytes.slice(122, 162))
+  const observer = readFixedAscii(bytes.subarray(42, 82))
+  const instrument = readFixedAscii(bytes.subarray(82, 122))
+  const telescope = readFixedAscii(bytes.subarray(122, 162))
   const startTime = view.getBigUint64(162, true)
   const startTimeUtc = view.getBigUint64(170, true)
 
@@ -195,7 +195,7 @@ function parseFromArrayBuffer(
 
   const firstFrameBytes =
     frameCount > 0
-      ? bytes.slice(SER_HEADER_LENGTH, SER_HEADER_LENGTH + Math.min(frameByteLength, 8192))
+      ? bytes.subarray(SER_HEADER_LENGTH, SER_HEADER_LENGTH + Math.min(frameByteLength, 8192))
       : null
   const byteOrder = deriveByteOrderFromFlag(littleEndianFlag, cfg.endiannessPolicy, firstFrameBytes)
 
@@ -207,7 +207,7 @@ function parseFromArrayBuffer(
   const timestamps: bigint[] = []
   if (frameCount > 0 && trailerLength >= frameCount * 8) {
     timestampsPresent = true
-    const tsView = new DataView(buffer, trailerStart, frameCount * 8)
+    const tsView = new DataView(bytes.buffer, bytes.byteOffset + trailerStart, frameCount * 8)
     for (let i = 0; i < frameCount; i++) {
       timestamps.push(tsView.getBigUint64(i * 8, true))
     }
@@ -248,6 +248,12 @@ function parseFromArrayBuffer(
     })
   }
 
+  const isContiguousBufferView =
+    bytes.byteOffset === 0 &&
+    bytes.byteLength === bytes.buffer.byteLength &&
+    sourceBuffer !== undefined &&
+    sourceBuffer.byteLength === bytes.byteLength
+
   return {
     header: {
       fileId,
@@ -271,16 +277,29 @@ function parseFromArrayBuffer(
     frameInfos,
     timestamps,
     timestampsPresent,
-    buffer,
+    buffer: isContiguousBufferView ? sourceBuffer : undefined,
+    bytes,
     blob: sourceBlob,
   }
 }
 
 export function parseSERBuffer(buffer: ArrayBuffer, options?: SERReadOptions): SERParsedFile {
-  return parseFromArrayBuffer(buffer, options)
+  const bytes = new Uint8Array(buffer)
+  return parseFromBytes(bytes, options, undefined, buffer)
+}
+
+export function parseSERBytes(bytes: Uint8Array, options?: SERReadOptions): SERParsedFile {
+  const sourceBuffer =
+    bytes.byteOffset === 0 &&
+    bytes.byteLength === bytes.buffer.byteLength &&
+    bytes.buffer instanceof ArrayBuffer
+      ? bytes.buffer
+      : undefined
+  return parseFromBytes(bytes, options, undefined, sourceBuffer)
 }
 
 export async function parseSERBlob(blob: Blob, options?: SERReadOptions): Promise<SERParsedFile> {
   const buffer = await blob.arrayBuffer()
-  return parseFromArrayBuffer(buffer, options, blob)
+  const bytes = new Uint8Array(buffer)
+  return parseFromBytes(bytes, options, blob, buffer)
 }

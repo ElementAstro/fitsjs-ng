@@ -1,8 +1,21 @@
-import { parseBuffer, parseBlob } from './parser'
+import { parseBuffer, parseBlob, parseBytes } from './parser'
 import { HDU } from './hdu'
+import { HTTPRangeBlob } from './http-range-blob'
+import { fetchOkWithNetworkPolicy } from '../core/network'
 import type { Header } from './header'
 import type { DataUnit } from './data-unit'
 import type { ReadOptions, FetchOptions } from '../core/types'
+
+async function responseToArrayBuffer(response: Response): Promise<ArrayBuffer> {
+  const responseWithBytes = response as Response & {
+    bytes?: () => Promise<Uint8Array>
+  }
+  if (typeof responseWithBytes.bytes === 'function') {
+    const bytes = await responseWithBytes.bytes()
+    return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength)
+  }
+  return response.arrayBuffer()
+}
 
 /**
  * Main FITS class — the primary entry point for reading FITS files.
@@ -45,6 +58,18 @@ export class FITS {
   }
 
   /**
+   * Parse a FITS file from an in-memory byte view (synchronous).
+   *
+   * By default this opts into view-based storage for supported data units to avoid copies.
+   * Pass `dataUnitStorage: 'copy'` to preserve copy-based behavior.
+   */
+  static fromBytes(bytes: Uint8Array, options?: ReadOptions): FITS {
+    const effectiveStorage = options?.dataUnitStorage ?? 'view'
+    const hdus = parseBytes(bytes, { ...options, dataUnitStorage: effectiveStorage })
+    return new FITS(hdus)
+  }
+
+  /**
    * Parse a FITS file from a Blob or File object (async).
    */
   static async fromBlob(blob: Blob, options?: ReadOptions): Promise<FITS> {
@@ -56,14 +81,50 @@ export class FITS {
    * Fetch a remote FITS file and parse it (async, browser or Node 18+).
    *
    * @param url - URL of the FITS file.
-   * @param init - Optional fetch RequestInit (headers, signal, etc.).
+   * @param options - Optional fetch/read options.
+   *
+   * Default mode is `urlMode: 'auto'`:
+   * - try HTTP Range-backed lazy loading first,
+   * - fall back to eager full download when range loading is unavailable.
    */
   static async fromURL(url: string, options?: FetchOptions): Promise<FITS> {
-    const response = await fetch(url, options?.requestInit)
-    if (!response.ok) {
-      throw new Error(`Failed to fetch FITS file: ${response.status} ${response.statusText}`)
+    const urlMode = options?.urlMode ?? 'auto'
+    const warn = options?.onWarning ?? console.warn
+
+    if (urlMode === 'auto' || urlMode === 'range') {
+      try {
+        const rangeSource = await HTTPRangeBlob.open(url, {
+          requestInit: options?.requestInit,
+          timeoutMs: options?.timeoutMs,
+          retryCount: options?.retryCount,
+          retryDelayMs: options?.retryDelayMs,
+          chunkSize: options?.rangeChunkSize,
+          maxCachedChunks: options?.rangeMaxCachedChunks,
+        })
+        const hdus = await parseBlob(rangeSource, options)
+        return new FITS(hdus)
+      } catch (error) {
+        if (urlMode === 'range') {
+          throw error
+        }
+        warn(
+          `FITS.fromURL auto mode fell back to eager download because range loading is unavailable: ${String(error)}`,
+        )
+      }
     }
-    const buffer = await response.arrayBuffer()
+
+    const response = await fetchOkWithNetworkPolicy(
+      url,
+      {
+        requestInit: options?.requestInit,
+        timeoutMs: options?.timeoutMs,
+        retryCount: options?.retryCount,
+        retryDelayMs: options?.retryDelayMs,
+      },
+      { method: 'GET' },
+      'Failed to fetch FITS file',
+    )
+    const buffer = await responseToArrayBuffer(response)
     return FITS.fromArrayBuffer(buffer, options)
   }
 
@@ -75,6 +136,11 @@ export class FITS {
     nodeBuffer: { buffer: ArrayBuffer; byteOffset: number; byteLength: number },
     options?: ReadOptions,
   ): FITS {
+    if (options?.dataUnitStorage === 'view') {
+      const bytes = new Uint8Array(nodeBuffer.buffer, nodeBuffer.byteOffset, nodeBuffer.byteLength)
+      return FITS.fromBytes(bytes, options)
+    }
+
     const arrayBuffer = nodeBuffer.buffer.slice(
       nodeBuffer.byteOffset,
       nodeBuffer.byteOffset + nodeBuffer.byteLength,

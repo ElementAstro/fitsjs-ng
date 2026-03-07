@@ -8,6 +8,8 @@ export type SEREndiannessPolicy = 'compat' | 'spec' | 'auto'
 
 export type SERSampleArray = Uint8Array | Uint16Array
 
+export type SERFrameStorage = 'copy' | 'view'
+
 export interface SERWarning {
   code: string
   message: string
@@ -19,6 +21,11 @@ export interface SERReadOptions {
   strictValidation?: boolean
   endiannessPolicy?: SEREndiannessPolicy
   onWarning?: SERWarningCallback
+  frameStorage?: SERFrameStorage
+  requestInit?: RequestInit
+  timeoutMs?: number
+  retryCount?: number
+  retryDelayMs?: number
 }
 
 export interface SERHeader {
@@ -67,6 +74,7 @@ export interface SERParsedFile {
   timestamps: bigint[]
   timestampsPresent: boolean
   buffer?: ArrayBuffer
+  bytes?: Uint8Array
   blob?: Blob
 }
 

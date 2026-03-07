@@ -104,6 +104,15 @@ export interface HiPSReadTileResult {
   data: TypedArray
 }
 
+export interface HiPSReadOptions {
+  requestInit?: RequestInit
+  timeoutMs?: number
+  retryCount?: number
+  retryDelayMs?: number
+  tileCacheMaxEntries?: number
+  allskyCache?: boolean
+}
+
 export interface HiPSMapResult {
   order: number
   nside: number

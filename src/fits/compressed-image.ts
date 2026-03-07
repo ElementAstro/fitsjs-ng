@@ -7,7 +7,7 @@ import { DecompressionError } from '../core/errors'
 import { TYPED_ARRAY_CONSTRUCTORS } from '../core/types'
 import { gunzipSync } from 'fflate'
 import type { Header } from './header'
-import type { TableRow, TypedArray, AlgorithmParameters } from '../core/types'
+import type { AlgorithmParameters, BlobSource, TableRow, TypedArray } from '../core/types'
 
 export interface CompressedImageDecodeContext {
   algorithm: string
@@ -268,7 +268,11 @@ export class CompressedImage extends BinaryTable {
   readonly decoderProvider?: CompressedImageDecoderProvider
   private currentTilePixelCount?: number
 
-  constructor(header: Header, data: ArrayBuffer | Blob, options: CompressedImageOptions = {}) {
+  constructor(
+    header: Header,
+    data: ArrayBuffer | BlobSource,
+    options: CompressedImageOptions = {},
+  ) {
     super(header, data)
 
     this.zcmptype = header.getString('ZCMPTYPE')

@@ -136,6 +136,35 @@ export type TypedArray =
 export type WarningCallback = (message: string) => void
 
 /**
+ * Controls how data units are stored when parsing from an in-memory bytes source.
+ *
+ * - 'copy' (default): Copy each HDU's data unit into a new ArrayBuffer (stable, isolates input).
+ * - 'view': For supported data units, keep a Uint8Array view into the original input bytes (zero-copy).
+ */
+export type DataUnitStorage = 'copy' | 'view'
+
+/**
+ * URL loading strategy for remote FITS files.
+ *
+ * - 'auto' (default): try HTTP Range-based lazy loading, fallback to eager download.
+ * - 'eager': always download the full file first.
+ * - 'range': require HTTP Range support and fail if unavailable.
+ */
+export type URLLoadMode = 'auto' | 'eager' | 'range'
+
+/**
+ * Blob-like byte source used by FITS parsers.
+ *
+ * Native `Blob` objects satisfy this interface, and custom remote range-backed
+ * implementations can provide the same contract.
+ */
+export interface BlobSource {
+  readonly size: number
+  slice(start?: number, end?: number, contentType?: string): BlobSource
+  arrayBuffer(): Promise<ArrayBuffer>
+}
+
+/**
  * Options for reading FITS data.
  */
 export interface ReadOptions {
@@ -143,6 +172,21 @@ export interface ReadOptions {
   maxHeaderLines?: number
   /** Callback for non-fatal warnings during parsing (default: console.warn) */
   onWarning?: WarningCallback
+  /**
+   * Maximum number of blob-backed image frames cached per Image instance.
+   *
+   * - undefined: preserve historical behavior (unbounded cache)
+   * - 0: disable frame caching
+   * - >0: enable LRU cache with the specified capacity
+   */
+  imageFrameCacheMaxFrames?: number
+  /**
+   * Data unit storage mode when parsing from an in-memory source.
+   *
+   * Defaults to 'copy' to preserve historical behavior and avoid retaining the caller's input buffer.
+   * When set to 'view', only supported data units may use a zero-copy byte view of the input.
+   */
+  dataUnitStorage?: DataUnitStorage
 }
 
 /**
@@ -151,6 +195,18 @@ export interface ReadOptions {
 export interface FetchOptions extends ReadOptions {
   /** Additional fetch options (headers, signal, etc.) */
   requestInit?: RequestInit
+  /** Request timeout in milliseconds. */
+  timeoutMs?: number
+  /** Number of retry attempts after the first request (default: 0). */
+  retryCount?: number
+  /** Base retry delay in milliseconds; exponential backoff is applied per retry. */
+  retryDelayMs?: number
+  /** URL loading strategy (default: 'auto'). */
+  urlMode?: URLLoadMode
+  /** Chunk size (bytes) for range-backed lazy loading (default: 262144). */
+  rangeChunkSize?: number
+  /** Maximum number of cached range chunks (default: 16). */
+  rangeMaxCachedChunks?: number
 }
 
 /**

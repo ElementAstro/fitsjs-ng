@@ -140,4 +140,109 @@ describe('hips', () => {
       }
     }
   })
+
+  it('caches tile reads and deduplicates concurrent tile requests when tile cache is enabled', async () => {
+    const tileBytes = fitsTileBytes(0, 0)
+    let tileReads = 0
+    const source = {
+      async readText() {
+        return 'hips_tile_format = fits\nhips_frame = equatorial\n'
+      },
+      async readBinary(path: string) {
+        if (path !== hipsTilePath({ order: 0, ipix: 0, frame: 'equatorial', format: 'fits' })) {
+          throw new Error(`unexpected path: ${path}`)
+        }
+        tileReads++
+        await new Promise((resolve) => setTimeout(resolve, 15))
+        return tileBytes
+      },
+      async writeText() {},
+      async writeBinary() {},
+      async exists() {
+        return false
+      },
+    }
+
+    const hips = await HiPS.open(source, { tileCacheMaxEntries: 2 })
+    const [first, second] = await Promise.all([
+      hips.readTile({ order: 0, ipix: 0, format: 'fits' }),
+      hips.readTile({ order: 0, ipix: 0, format: 'fits' }),
+    ])
+    expect(first.width).toBe(2)
+    expect(second.width).toBe(2)
+    expect(tileReads).toBe(1)
+
+    await hips.readTile({ order: 0, ipix: 0, format: 'fits' })
+    expect(tileReads).toBe(1)
+
+    hips.clearReadCache('tile')
+    await hips.readTile({ order: 0, ipix: 0, format: 'fits' })
+    expect(tileReads).toBe(2)
+  })
+
+  it('evicts least-recently-used tiles when tileCacheMaxEntries is bounded', async () => {
+    const reads = new Map<string, number>()
+    const source = {
+      async readText() {
+        return 'hips_tile_format = fits\nhips_frame = equatorial\n'
+      },
+      async readBinary(path: string) {
+        reads.set(path, (reads.get(path) ?? 0) + 1)
+        if (path.endsWith('Npix0.fits')) return fitsTileBytes(0, 0)
+        if (path.endsWith('Npix1.fits')) return fitsTileBytes(0, 1)
+        throw new Error(`unexpected path: ${path}`)
+      },
+      async writeText() {},
+      async writeBinary() {},
+      async exists() {
+        return false
+      },
+    }
+
+    const hips = await HiPS.open(source, { tileCacheMaxEntries: 1 })
+    await hips.readTile({ order: 0, ipix: 0, format: 'fits' })
+    await hips.readTile({ order: 0, ipix: 1, format: 'fits' })
+    await hips.readTile({ order: 0, ipix: 0, format: 'fits' })
+
+    const tile0Path = hipsTilePath({ order: 0, ipix: 0, frame: 'equatorial', format: 'fits' })
+    expect(reads.get(tile0Path)).toBe(2)
+  })
+
+  it('supports allsky cache and clearReadCache for allsky/properties', async () => {
+    let allskyReads = 0
+    let propertyReads = 0
+    const source = {
+      async readText(path: string) {
+        expect(path).toBe('properties')
+        propertyReads++
+        return 'hips_tile_format = fits\nhips_frame = equatorial\n'
+      },
+      async readBinary(path: string) {
+        if (path !== hipsAllskyPath('fits')) {
+          throw new Error(`unexpected path: ${path}`)
+        }
+        allskyReads++
+        return fitsTileBytes(0, 0)
+      },
+      async writeText() {},
+      async writeBinary() {},
+      async exists() {
+        return false
+      },
+    }
+
+    const hips = await HiPS.open(source, { allskyCache: true })
+    await hips.readAllsky('fits')
+    await hips.readAllsky('fits')
+    expect(allskyReads).toBe(1)
+
+    hips.clearReadCache('allsky')
+    await hips.readAllsky('fits')
+    expect(allskyReads).toBe(2)
+
+    await hips.getProperties()
+    hips.clearReadCache('properties')
+    await hips.getProperties()
+    expect(propertyReads).toBe(2)
+  })
 })

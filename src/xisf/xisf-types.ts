@@ -217,6 +217,11 @@ export interface XISFReadOptions {
   verifySignatures?: boolean
   signaturePolicy?: XISFSignaturePolicy
   decodeImageData?: boolean
+  requestInit?: RequestInit
+  timeoutMs?: number
+  retryCount?: number
+  retryDelayMs?: number
+  imageDataCacheMaxEntries?: number
   baseUrl?: string
   headerDir?: string
   onWarning?: XISFWarningCallback
@@ -239,9 +244,16 @@ export interface XISFResourceContext {
   headerDir?: string
 }
 
+export interface XISFResourceRequestOptions {
+  requestInit?: RequestInit
+  timeoutMs?: number
+  retryCount?: number
+  retryDelayMs?: number
+}
+
 export interface XISFResourceResolver {
-  resolveURL(url: string): Promise<Uint8Array>
-  resolvePath(path: string): Promise<Uint8Array>
+  resolveURL(url: string, options?: XISFResourceRequestOptions): Promise<Uint8Array>
+  resolvePath(path: string, options?: XISFResourceRequestOptions): Promise<Uint8Array>
 }
 
 export interface ConversionOptions {

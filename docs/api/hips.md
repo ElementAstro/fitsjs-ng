@@ -5,12 +5,13 @@
 ### `HiPS`
 
 ```ts
-new HiPS(source: HiPSInput)
-static open(source: HiPSInput): Promise<HiPS>
+new HiPS(source: HiPSInput, options?: HiPSReadOptions)
+static open(source: HiPSInput, options?: HiPSReadOptions): Promise<HiPS>
 getProperties(): Promise<HiPSProperties>
 tileFormats(): Promise<HiPSTileFormat[]>
 readTile({ order, ipix, format?, frame? }): Promise<HiPSReadTileResult>
 readAllsky(format?): Promise<Uint8Array>
+clearReadCache(kind?: 'tile' | 'allsky' | 'properties' | 'all'): void
 ```
 
 `source` can be:
@@ -23,6 +24,19 @@ Runtime notes:
 
 - Local root paths are Node.js-only.
 - Browser/React Native should use URL sources or custom `HiPSExportTarget` objects.
+
+Low-memory read options:
+
+```ts
+interface HiPSReadOptions {
+  requestInit?: RequestInit
+  timeoutMs?: number
+  retryCount?: number
+  retryDelayMs?: number
+  tileCacheMaxEntries?: number // default 0
+  allskyCache?: boolean // default false
+}
+```
 
 ### `HiPSProperties`
 

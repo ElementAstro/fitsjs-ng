@@ -50,6 +50,7 @@ Node-only APIs fail with actionable runtime messages in non-Node environments in
 import {
   FITS,
   SER,
+  parseSERBytes,
   XISF,
   XISFWriter,
   parseSERBuffer,
@@ -75,7 +76,12 @@ const fits = FITS.fromArrayBuffer(
 )
 const fitsFromBlob = await FITS.fromBlob(new Blob([await fs.promises.readFile('image.fits')]))
 const fitsFromNodeBuffer = FITS.fromNodeBuffer(await fs.promises.readFile('image.fits'))
-const fitsFromUrl = await FITS.fromURL('https://example.com/image.fits')
+const fitsFromUrl = await FITS.fromURL('https://example.com/image.fits', {
+  imageFrameCacheMaxFrames: 2,
+  timeoutMs: 15000,
+  retryCount: 1,
+  retryDelayMs: 150,
+})
 
 // Access header + image
 const header = fits.getHeader()
@@ -93,12 +99,22 @@ const xisfBytes = await convertFitsToXisf(
 const xisf = await XISF.fromArrayBuffer(xisfBytes as ArrayBuffer)
 const fitsBytes = await convertXisfToFits(xisf)
 
+// XISF low-memory lazy decode
+const xisfLazy = await XISF.fromArrayBuffer(xisfBytes as ArrayBuffer, {
+  decodeImageData: false,
+  imageDataCacheMaxEntries: 1,
+})
+const lazyImageBytes = await xisfLazy.getImageData(0, { cache: true })
+xisfLazy.releaseImageData(0)
+
 // SER parse + conversions
 const serBytes = await fs.promises
   .readFile('capture.ser')
   .then((b) => b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength))
 const ser = SER.fromArrayBuffer(serBytes)
+const serFast = SER.fromBytes(new Uint8Array(serBytes)) // defaults to view-based frame storage
 const parsedSer = parseSERBuffer(serBytes)
+const parsedSerBytes = parseSERBytes(new Uint8Array(serBytes))
 const parsedSerBlob = await parseSERBlob(new Blob([serBytes]))
 const fitsFromSer = await convertSerToFits(serBytes, { layout: 'cube' })
 const serFromFits = await convertFitsToSer(fitsFromSer, { sourceLayout: 'auto' })
@@ -161,6 +177,10 @@ console.log(lint.ok, lint.issues)
 - Use custom `HiPSExportTarget` implementations or browser-friendly targets (`BrowserZipTarget`) instead of `NodeFSTarget`.
 - Avoid local filesystem path inputs (`HiPS.open('/path')`, `lintHiPS('/path')`) unless you provide your own storage abstraction.
 - Detached XISF signature verification requires `crypto.subtle`; if unavailable, verification fails by default.
+- Recommended low-memory settings:
+  - FITS URL reads: `imageFrameCacheMaxFrames: 1~2`, `timeoutMs`, `retryCount`
+  - XISF reads: `decodeImageData: false` + `getImageData()` on demand + `releaseImageData()`
+  - HiPS reads: `HiPS.open(source, { tileCacheMaxEntries, allskyCache })` + `clearReadCache()`
 
 ```ts
 import { XISF } from 'fitsjs-ng'
@@ -181,9 +201,29 @@ Static factory methods:
 | Method                         | Description                         |
 | ------------------------------ | ----------------------------------- |
 | `FITS.fromArrayBuffer(buffer)` | Parse from `ArrayBuffer` (sync)     |
+| `FITS.fromBytes(bytes)`        | Parse from `Uint8Array` (sync)      |
 | `FITS.fromBlob(blob)`          | Parse from `Blob`/`File` (async)    |
 | `FITS.fromURL(url)`            | Fetch and parse remote file (async) |
 | `FITS.fromNodeBuffer(buffer)`  | Parse from Node.js `Buffer` (sync)  |
+
+Performance note:
+
+- `FITS.fromBytes(...)` defaults to view-based storage for supported data units to avoid copies.
+- You can also enable view mode via `FITS.fromNodeBuffer(buf, { dataUnitStorage: 'view' })`.
+- View-based storage currently applies to standard `Image` data units; other types fall back to copy mode with a warning.
+- When using view-based storage, do not mutate the input `Uint8Array`/`Buffer` after parsing.
+- `FITS.fromURL(...)` defaults to `urlMode: 'auto'`:
+  - tries HTTP Range-based lazy loading first (faster first paint, lower peak memory),
+  - falls back to eager full download when Range is unavailable.
+- Range loading can be tuned with:
+  - `urlMode?: 'auto' | 'eager' | 'range'`
+  - `rangeChunkSize?: number` (default `262144`)
+  - `rangeMaxCachedChunks?: number` (default `16`)
+  - `timeoutMs?: number`, `retryCount?: number`, `retryDelayMs?: number`
+- Image frame cache can be tuned with:
+  - `imageFrameCacheMaxFrames?: number` (`undefined`=legacy unlimited, `0`=disabled, `>0`=LRU)
+  - `image.releaseFrameCache(frameIndex?)` for proactive memory release
+- In range mode, parsing may issue additional network requests later when calling `image.getFrame()` / table row readers.
 
 ### `XISF`
 
@@ -196,19 +236,36 @@ Static factory methods:
 | `XISF.fromURL(url)`            | Fetch and parse remote `.xisf`/`.xish`   |
 | `XISF.fromNodeBuffer(buffer)`  | Parse from Node.js `Buffer`-like payload |
 
+Low-memory read helpers:
+
+- `decodeImageData?: boolean` (default `true`)
+- `imageDataCacheMaxEntries?: number` (default `0`)
+- `requestInit?`, `timeoutMs?`, `retryCount?`, `retryDelayMs?`
+- `xisf.getImageData(index?, { cache?: boolean })`
+- `xisf.releaseImageData(index?)`
+
 ### `SER`
 
 Static factory methods:
 
-| Method                        | Description                                         |
-| ----------------------------- | --------------------------------------------------- |
-| `SER.fromArrayBuffer(buffer)` | Parse SER from `ArrayBuffer`                        |
-| `SER.fromBlob(blob)`          | Parse SER from `Blob`/`File`                        |
-| `SER.fromURL(url)`            | Fetch and parse remote `.ser`                       |
-| `SER.fromNodeBuffer(buffer)`  | Parse SER from Node.js `Buffer`-like payload        |
-| `parseSERBuffer(buffer)`      | Parse SER buffer and return structured parse result |
-| `parseSERBlob(blob)`          | Parse SER blob and return structured parse result   |
-| `writeSER(input)`             | Serialize SER header + frames (+ optional trailer)  |
+| Method                        | Description                                           |
+| ----------------------------- | ----------------------------------------------------- |
+| `SER.fromArrayBuffer(buffer)` | Parse SER from `ArrayBuffer`                          |
+| `SER.fromBytes(bytes)`        | Parse SER from `Uint8Array` (view storage by default) |
+| `SER.fromBlob(blob)`          | Parse SER from `Blob`/`File`                          |
+| `SER.fromURL(url)`            | Fetch and parse remote `.ser`                         |
+| `SER.fromNodeBuffer(buffer)`  | Parse SER from Node.js `Buffer`-like payload          |
+| `parseSERBytes(bytes)`        | Parse SER bytes and return structured parse result    |
+| `parseSERBuffer(buffer)`      | Parse SER buffer and return structured parse result   |
+| `parseSERBlob(blob)`          | Parse SER blob and return structured parse result     |
+| `writeSER(input)`             | Serialize SER header + frames (+ optional trailer)    |
+
+Performance note:
+
+- `SER.fromBytes(...)` defaults to `frameStorage: 'view'` for zero-copy frame reads.
+- Other SER factories default to `frameStorage: 'copy'` to preserve historical behavior.
+- You can override per read via `ser.getFrame(i, { frameStorage: 'copy' | 'view' })`.
+- In `view` mode, do not mutate the source bytes after parsing.
 
 Instance helpers:
 
@@ -250,9 +307,10 @@ SER conversion options:
 
 | Method / Class                           | Description                                       |
 | ---------------------------------------- | ------------------------------------------------- |
-| `HiPS.open(source)`                      | Open HiPS from local path, URL, or storage target |
+| `HiPS.open(source, options?)`            | Open HiPS from local path, URL, or storage target |
 | `HiPS.getProperties()`                   | Load and parse `properties`                       |
 | `HiPS.readTile({ order, ipix, format })` | Read/decode one tile                              |
+| `HiPS.clearReadCache(kind?)`             | Clear tile/allsky/properties read cache           |
 | `NodeFSTarget`                           | Node filesystem output target                     |
 | `BrowserZipTarget`                       | Browser ZIP output target                         |
 | `BrowserOPFSTarget`                      | Browser OPFS output target                        |
@@ -398,6 +456,7 @@ pnpm demo          # FITS/XISF CLI demo
 pnpm demo:hips     # HiPS Node demo (FITS->HiPS->FITS)
 pnpm demo:xisf     # XISF Node demo (FITS<->XISF, monolithic/distributed)
 pnpm demo:ser      # SER Node demo (SER<->FITS<->XISF)
+pnpm demo:perf:loading # Reproducible loading perf report (writes demo/.out/perf-loading-report.md)
 pnpm demo:web      # Serve web demos (open /demo/web/index.html, /demo/web/hips.html, /demo/web/xisf.html)
 ```
 

@@ -14,6 +14,9 @@ Main entry point for reading FITS files.
 // Synchronous — from ArrayBuffer
 static fromArrayBuffer(buffer: ArrayBuffer, options?: ReadOptions): FITS
 
+// Synchronous — from byte view
+static fromBytes(bytes: Uint8Array, options?: ReadOptions): FITS
+
 // Async — from Blob or File
 static async fromBlob(blob: Blob, options?: ReadOptions): Promise<FITS>
 
@@ -92,6 +95,7 @@ readonly naxis: number[]
 async getFrame(index: number): Promise<TypedArray>
 async getFrameAsNumber(index?: number): Promise<Float64Array>
 async getFrames(start: number, count: number): Promise<TypedArray[]>
+releaseFrameCache(frameIndex?: number): void
 getExtent(arr: TypedArray): [number | bigint, number | bigint]
 getPixel(arr: TypedArray, x: number, y: number): number | bigint
 isDataCube(): boolean
@@ -99,6 +103,13 @@ async *[Symbol.asyncIterator](): AsyncIterableIterator<TypedArray>  // iterate f
 ```
 
 `getFrame()` keeps `BITPIX=64` data lossless as bigint where possible. Use `getFrameAsNumber()` only for explicit lossy conversion.
+
+`FITS.fromURL()` defaults to `urlMode: 'auto'`, which tries HTTP Range lazy loading first and falls back to eager full download if unsupported.
+
+For low-memory rendering loops (including React Native), combine:
+
+- `ReadOptions.imageFrameCacheMaxFrames` (`0` disables frame cache, positive enables bounded LRU)
+- `image.releaseFrameCache(...)` after render/transition to free frame buffers proactively.
 
 ---
 
@@ -119,6 +130,29 @@ async *[Symbol.asyncIterator](): AsyncIterableIterator<TypedArray>  // iterate f
 
 For signed documents, checksum verification is forced for attachment/path/url blocks.
 
+## XISF Low-Memory Read APIs
+
+`XISF.fromArrayBuffer()` / `XISF.fromURL()` support:
+
+```ts
+{
+  decodeImageData?: boolean           // default true
+  imageDataCacheMaxEntries?: number   // default 0 (no cache)
+  requestInit?: RequestInit
+  timeoutMs?: number
+  retryCount?: number
+  retryDelayMs?: number
+}
+```
+
+When `decodeImageData: false`, image blocks are loaded lazily:
+
+```ts
+const xisf = await XISF.fromArrayBuffer(buffer, { decodeImageData: false })
+const bytes = await xisf.getImageData(0, { cache: true }) // optional cache
+xisf.releaseImageData(0) // or releaseImageData() for all images
+```
+
 ---
 
 ## SER
@@ -128,18 +162,23 @@ SER support includes reading, writing, and conversion:
 ```ts
 class SER {
   static fromArrayBuffer(buffer: ArrayBuffer, options?: SERReadOptions): SER
+  static fromBytes(bytes: Uint8Array, options?: SERReadOptions): SER
   static fromBlob(blob: Blob, options?: SERReadOptions): Promise<SER>
-  static fromURL(
-    url: string,
-    options?: SERReadOptions & { requestInit?: RequestInit },
-  ): Promise<SER>
+  static fromURL(url: string, options?: SERReadOptions): Promise<SER>
   static fromNodeBuffer(buffer: NodeBufferLike, options?: SERReadOptions): SER
 
   getHeader(): SERHeader
   getFrameCount(): number
-  getFrame(index: number, options?: { asRGB?: boolean }): SERFrameData
+  getFrame(
+    index: number,
+    options?: { asRGB?: boolean; frameStorage?: SERFrameStorage },
+  ): SERFrameData
   getFrameRGB(index: number): Uint8Array | Uint16Array
-  getFrames(startFrame: number, count: number, options?: { asRGB?: boolean }): SERFrameData[]
+  getFrames(
+    startFrame: number,
+    count: number,
+    options?: { asRGB?: boolean; frameStorage?: SERFrameStorage },
+  ): SERFrameData[]
   getTimestamp(index: number): bigint | undefined
   getTimestampDate(index: number): Date | undefined
   getDurationTicks(): bigint | undefined
@@ -148,6 +187,7 @@ class SER {
   async *[Symbol.asyncIterator](): AsyncIterableIterator<SERFrameData>
 }
 
+function parseSERBytes(bytes: Uint8Array, options?: SERReadOptions): SERParsedFile
 function parseSERBuffer(buffer: ArrayBuffer, options?: SERReadOptions): SERParsedFile
 function parseSERBlob(blob: Blob, options?: SERReadOptions): Promise<SERParsedFile>
 function writeSER(input: SERWriteInput, options?: SERWriteOptions): ArrayBuffer
@@ -215,10 +255,26 @@ type TypedArray = Uint8Array | Int8Array | Int16Array | Int32Array | Float32Arra
 interface ReadOptions {
   maxHeaderLines?: number
   onWarning?: WarningCallback
+  dataUnitStorage?: 'copy' | 'view'
+  imageFrameCacheMaxFrames?: number
+}
+
+type URLLoadMode = 'auto' | 'eager' | 'range'
+
+interface BlobSource {
+  size: number
+  slice(start?: number, end?: number, contentType?: string): BlobSource
+  arrayBuffer(): Promise<ArrayBuffer>
 }
 
 interface FetchOptions extends ReadOptions {
   requestInit?: RequestInit
+  timeoutMs?: number
+  retryCount?: number
+  retryDelayMs?: number
+  urlMode?: URLLoadMode
+  rangeChunkSize?: number
+  rangeMaxCachedChunks?: number
 }
 
 type WarningCallback = (message: string) => void

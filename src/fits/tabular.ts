@@ -1,6 +1,6 @@
 import { DataUnit } from './data-unit'
 import type { Header } from './header'
-import type { BinaryAccessor, TableRow, TypedArray } from '../core/types'
+import type { BinaryAccessor, BlobSource, TableRow, TypedArray } from '../core/types'
 import { TYPED_ARRAY_CONSTRUCTORS } from '../core/types'
 
 /**
@@ -42,7 +42,7 @@ export abstract class Tabular extends DataUnit {
   private nRowsInBuffer = 0
   private cachedBuffer?: ArrayBuffer
 
-  constructor(header: Header, data: ArrayBuffer | Blob) {
+  constructor(header: Header, data: ArrayBuffer | BlobSource) {
     super(data)
 
     this.rowByteSize = header.getNumber('NAXIS1')

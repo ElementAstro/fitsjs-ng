@@ -1,10 +1,12 @@
 import { SERParseError, SERValidationError } from './ser-errors'
-import { parseSERBlob, parseSERBuffer } from './ser-parser'
+import { parseSERBlob, parseSERBuffer, parseSERBytes } from './ser-parser'
+import { fetchOkWithNetworkPolicy } from '../core/network'
 import {
   SER_BAYER_OR_CMY_PATTERN,
   SER_TICKS_AT_UNIX_EPOCH,
   type SERByteOrder,
   type SERColorId,
+  type SERFrameStorage,
   type SERFrameData,
   type SERFrameInfo,
   type SERParsedFile,
@@ -14,19 +16,33 @@ import {
 
 interface SERFrameReadOptions {
   asRGB?: boolean
+  frameStorage?: SERFrameStorage
 }
+
+const HOST_IS_LITTLE_ENDIAN = (() => {
+  const probe = new Uint16Array([0x0102])
+  return new Uint8Array(probe.buffer)[0] === 0x02
+})()
 
 function decodeFrameSamples(
   raw: Uint8Array,
   bytesPerSample: 1 | 2,
   byteOrder: SERByteOrder,
+  frameStorage: SERFrameStorage,
 ): SERSampleArray {
   if (bytesPerSample === 1) {
     return raw
   }
+
+  const little = byteOrder === 'little'
+  const supportsFastPath = little === HOST_IS_LITTLE_ENDIAN && raw.byteOffset % 2 === 0
+  if (supportsFastPath) {
+    const fast = new Uint16Array(raw.buffer, raw.byteOffset, raw.byteLength / 2)
+    return frameStorage === 'view' ? fast : fast.slice()
+  }
+
   const view = new DataView(raw.buffer, raw.byteOffset, raw.byteLength)
   const samples = new Uint16Array(raw.byteLength / 2)
-  const little = byteOrder === 'little'
   for (let i = 0; i < samples.length; i++) {
     samples[i] = view.getUint16(i * 2, little)
   }
@@ -111,40 +127,60 @@ function decodeCfaToRGB(
 
 export class SER {
   readonly parsed: SERParsedFile
+  private readonly frameStorage: SERFrameStorage
 
-  private constructor(parsed: SERParsedFile) {
+  private constructor(parsed: SERParsedFile, frameStorage: SERFrameStorage) {
     this.parsed = parsed
+    this.frameStorage = frameStorage
   }
 
   static fromArrayBuffer(buffer: ArrayBuffer, options?: SERReadOptions): SER {
-    return new SER(parseSERBuffer(buffer, options))
+    const frameStorage = options?.frameStorage ?? 'copy'
+    return new SER(parseSERBuffer(buffer, options), frameStorage)
+  }
+
+  static fromBytes(bytes: Uint8Array, options?: SERReadOptions): SER {
+    const frameStorage = options?.frameStorage ?? 'view'
+    return new SER(parseSERBytes(bytes, options), frameStorage)
   }
 
   static async fromBlob(blob: Blob, options?: SERReadOptions): Promise<SER> {
-    return new SER(await parseSERBlob(blob, options))
+    const frameStorage = options?.frameStorage ?? 'copy'
+    return new SER(await parseSERBlob(blob, options), frameStorage)
   }
 
-  static async fromURL(
-    url: string,
-    options?: SERReadOptions & { requestInit?: RequestInit },
-  ): Promise<SER> {
-    const response = await fetch(url, options?.requestInit)
-    if (!response.ok) {
-      throw new SERParseError(`Failed to fetch SER file: ${response.status} ${response.statusText}`)
-    }
-    const buffer = await response.arrayBuffer()
-    return SER.fromArrayBuffer(buffer, options)
+  static async fromURL(url: string, options?: SERReadOptions): Promise<SER> {
+    const response = await fetchOkWithNetworkPolicy(
+      url,
+      {
+        requestInit: options?.requestInit,
+        timeoutMs: options?.timeoutMs,
+        retryCount: options?.retryCount,
+        retryDelayMs: options?.retryDelayMs,
+      },
+      { method: 'GET' },
+      'Failed to fetch SER file',
+    )
+    const bytes = new Uint8Array(await response.arrayBuffer())
+    const frameStorage = options?.frameStorage ?? 'copy'
+    return new SER(parseSERBytes(bytes, options), frameStorage)
   }
 
   static fromNodeBuffer(
     nodeBuffer: { buffer: ArrayBuffer; byteOffset: number; byteLength: number },
     options?: SERReadOptions,
   ): SER {
+    const frameStorage = options?.frameStorage ?? 'copy'
+    if (frameStorage === 'view') {
+      const bytes = new Uint8Array(nodeBuffer.buffer, nodeBuffer.byteOffset, nodeBuffer.byteLength)
+      return SER.fromBytes(bytes, options)
+    }
+
     const buffer = nodeBuffer.buffer.slice(
       nodeBuffer.byteOffset,
       nodeBuffer.byteOffset + nodeBuffer.byteLength,
     )
-    return SER.fromArrayBuffer(buffer, options)
+    return SER.fromArrayBuffer(buffer, { ...options, frameStorage })
   }
 
   getHeader() {
@@ -196,9 +232,19 @@ export class SER {
     return (frameCount - 1) / duration
   }
 
-  private readFrameRawBytes(info: SERFrameInfo): Uint8Array {
+  private readFrameRawBytes(info: SERFrameInfo, storage: SERFrameStorage): Uint8Array {
+    const bytes = this.parsed.bytes
+    if (bytes) {
+      const end = info.offset + info.byteLength
+      return storage === 'view' ? bytes.subarray(info.offset, end) : bytes.slice(info.offset, end)
+    }
+
     if (!this.parsed.buffer) {
       throw new SERParseError('SER source buffer is unavailable')
+    }
+
+    if (storage === 'view') {
+      return new Uint8Array(this.parsed.buffer, info.offset, info.byteLength)
     }
     return new Uint8Array(this.parsed.buffer.slice(info.offset, info.offset + info.byteLength))
   }
@@ -247,11 +293,13 @@ export class SER {
 
   getFrame(index: number, options?: SERFrameReadOptions): SERFrameData {
     const info = this.getFrameInfo(index)
-    const raw = this.readFrameRawBytes(info)
+    const frameStorage = options?.frameStorage ?? this.frameStorage
+    const raw = this.readFrameRawBytes(info, frameStorage)
     const samples = decodeFrameSamples(
       raw,
       this.parsed.header.bytesPerSample,
       this.parsed.header.byteOrder,
+      frameStorage,
     )
     const frameSamples = options?.asRGB
       ? this.samplesToRGB(samples, this.parsed.header.colorId)

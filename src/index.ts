@@ -4,7 +4,7 @@ export { XISF } from './xisf'
 export { XISFWriter } from './xisf/xisf-writer'
 export { convertXisfToFits, convertFitsToXisf } from './xisf/convert'
 export { SER } from './ser'
-export { parseSERBuffer, parseSERBlob } from './ser/ser-parser'
+export { parseSERBuffer, parseSERBlob, parseSERBytes } from './ser/ser-parser'
 export { writeSER } from './ser/ser-writer'
 export {
   convertSerToFits,
@@ -58,6 +58,9 @@ export type {
   TypedArray,
   TypedArrayConstructor,
   ReadOptions,
+  BlobSource,
+  DataUnitStorage,
+  URLLoadMode,
   FetchOptions,
   WarningCallback,
   TableRow,
@@ -72,6 +75,7 @@ export type {
   SERColorId,
   SERByteOrder,
   SEREndiannessPolicy,
+  SERFrameStorage,
   SERSampleArray,
   SERWarning,
   SERWarningCallback,
@@ -105,6 +109,7 @@ export type {
   HiPSExportTileOptions,
   HiPSExportMapOptions,
   HiPSReadTileResult,
+  HiPSReadOptions,
   HiPSMapResult,
   HiPSRemoteOptions,
   ConvertFitsToHiPSOptions,
@@ -143,6 +148,7 @@ export type {
   XISFReadOptions,
   XISFWriteOptions,
   XISFResourceContext,
+  XISFResourceRequestOptions,
   XISFResourceResolver,
   ConversionOptions,
 } from './xisf/xisf-types'

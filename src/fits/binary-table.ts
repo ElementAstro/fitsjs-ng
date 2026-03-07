@@ -1,7 +1,7 @@
 import { Tabular } from './tabular'
 import { DecompressionError } from '../core/errors'
 import type { Header } from './header'
-import type { BinaryAccessor, TableRow, TypedArray } from '../core/types'
+import type { BinaryAccessor, BlobSource, TableRow, TypedArray } from '../core/types'
 import { BINARY_TYPE_BYTE_SIZES, TYPED_ARRAY_CONSTRUCTORS } from '../core/types'
 import { swapEndian, toBits } from '../core/utils'
 
@@ -57,7 +57,7 @@ const DATA_ACCESSORS: Record<string, (view: DataView, offset: number) => [unknow
  * array descriptors pointing to a heap area.
  */
 export class BinaryTable extends Tabular {
-  constructor(header: Header, data: ArrayBuffer | Blob) {
+  constructor(header: Header, data: ArrayBuffer | BlobSource) {
     super(header, data)
     this.initAccessors(header)
   }

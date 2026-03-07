@@ -297,6 +297,8 @@
             <button id="btn-opfs" class="secondary">Build HiPS to OPFS</button>
             <button id="btn-xisf-bridge" class="secondary">Run XISF Bridge</button>
             <button id="btn-lint" class="secondary">Lint Last Build</button>
+            <button id="btn-read-cache" class="secondary">Probe Read Cache</button>
+            <button id="btn-clear-read-cache" class="secondary">Clear Read Cache</button>
             <button id="btn-clear" class="secondary">Clear Log</button>
           </div>
         </div>
@@ -331,6 +333,7 @@
     import {
       BrowserZipTarget,
       BrowserOPFSTarget,
+      HiPS,
       XISF,
       convertFitsToHiPS,
       convertFitsToXisf,
@@ -354,6 +357,7 @@
 
     let lastHiPSSource = null
     let lastBuildLabel = ''
+    let lastReadHiPS = null
 
     function log(msg) {
       logEl.textContent += `${msg}\n`
@@ -487,6 +491,7 @@
       ])
       lastHiPSSource = zipTarget
       lastBuildLabel = 'ZIP target'
+      lastReadHiPS = null
       log('[ZIP] done.')
     }
 
@@ -524,6 +529,7 @@
       ])
       lastHiPSSource = opfsTarget
       lastBuildLabel = 'OPFS target'
+      lastReadHiPS = null
       log('[OPFS] done.')
     }
 
@@ -564,6 +570,7 @@
       ])
       lastHiPSSource = bridgeTarget
       lastBuildLabel = 'XISF bridge target'
+      lastReadHiPS = null
       log('[XISF bridge] done.')
     }
 
@@ -577,6 +584,75 @@
       for (const issue of lint.issues) {
         log(`  - [${issue.level}] ${issue.code}: ${issue.message}`)
       }
+    }
+
+    async function findFirstReadableFitsTile(hips) {
+      const candidates = [
+        { order: 0, ipix: 0 },
+        { order: 1, ipix: 0 },
+        { order: 2, ipix: 0 },
+        { order: 3, ipix: 0 },
+        { order: 3, ipix: 1 },
+      ]
+      let lastError = null
+      for (const candidate of candidates) {
+        try {
+          await hips.readTile({ order: candidate.order, ipix: candidate.ipix, format: 'fits' })
+          return candidate
+        } catch (error) {
+          lastError = error
+        }
+      }
+      throw new Error(`no readable FITS tile candidate found: ${String(lastError)}`)
+    }
+
+    async function runReadCacheProbe() {
+      if (!lastHiPSSource) {
+        log('[CACHE] no previous build result. Run ZIP or OPFS build first.')
+        return
+      }
+
+      if (!lastReadHiPS) {
+        lastReadHiPS = await HiPS.open(lastHiPSSource, {
+          tileCacheMaxEntries: 4,
+          allskyCache: true,
+          timeoutMs: 15000,
+          retryCount: 1,
+          retryDelayMs: 150,
+        })
+        log('[CACHE] initialized HiPS reader with low-memory settings (tileCache=4, allskyCache=true).')
+      }
+
+      const tileMeta = await findFirstReadableFitsTile(lastReadHiPS)
+      lastReadHiPS.clearReadCache('tile')
+      const tileStart = performance.now()
+      await lastReadHiPS.readTile({ order: tileMeta.order, ipix: tileMeta.ipix, format: 'fits' })
+      const tileMissMs = performance.now() - tileStart
+      const tileHitStart = performance.now()
+      await lastReadHiPS.readTile({ order: tileMeta.order, ipix: tileMeta.ipix, format: 'fits' })
+      const tileHitMs = performance.now() - tileHitStart
+
+      lastReadHiPS.clearReadCache('allsky')
+      const allskyStart = performance.now()
+      await lastReadHiPS.readAllsky('fits')
+      const allskyMissMs = performance.now() - allskyStart
+      const allskyHitStart = performance.now()
+      await lastReadHiPS.readAllsky('fits')
+      const allskyHitMs = performance.now() - allskyHitStart
+
+      log(
+        `[CACHE] tile order=${tileMeta.order} ipix=${tileMeta.ipix}: miss=${tileMissMs.toFixed(1)}ms, hit=${tileHitMs.toFixed(1)}ms`,
+      )
+      log(`[CACHE] allsky fits: miss=${allskyMissMs.toFixed(1)}ms, hit=${allskyHitMs.toFixed(1)}ms`)
+    }
+
+    function clearReadCache() {
+      if (!lastReadHiPS) {
+        log('[CACHE] reader not initialized yet.')
+        return
+      }
+      lastReadHiPS.clearReadCache('all')
+      log('[CACHE] cleared tile/allsky/properties read cache.')
     }
 
     $('#btn-zip').addEventListener('click', async () => {
@@ -609,6 +685,18 @@
       } catch (e) {
         log(`[LINT] error: ${e instanceof Error ? e.message : String(e)}`)
       }
+    })
+
+    $('#btn-read-cache').addEventListener('click', async () => {
+      try {
+        await runReadCacheProbe()
+      } catch (e) {
+        log(`[CACHE] error: ${e instanceof Error ? e.message : String(e)}`)
+      }
+    })
+
+    $('#btn-clear-read-cache').addEventListener('click', () => {
+      clearReadCache()
     })
 
     $('#btn-clear').addEventListener('click', () => {

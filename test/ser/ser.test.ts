@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { SER } from '../../src/ser'
 import { parseSERBuffer } from '../../src/ser/ser-parser'
 import { writeSER } from '../../src/ser/ser-writer'
@@ -214,5 +214,215 @@ describe('SER parser and class', () => {
     expect(ser.getDurationTicks()).toBeUndefined()
     expect(ser.getDurationSeconds()).toBeUndefined()
     expect(ser.getEstimatedFPS()).toBeUndefined()
+  })
+
+  it('keeps previously-read frames stable in copy mode', () => {
+    const { buffer } = buildSerSequence({
+      colorId: 0,
+      width: 2,
+      height: 2,
+      pixelDepth: 8,
+      frameCount: 1,
+    })
+
+    const ser = SER.fromArrayBuffer(buffer)
+    const frame = ser.getFrame(0)
+    const before = frame.raw[0]
+    const source = new Uint8Array(buffer)
+    source[frame.info.offset] = (before + 9) & 0xff
+
+    expect(frame.raw[0]).toBe(before)
+  })
+
+  it('exposes view semantics from fromBytes by default', () => {
+    const { buffer } = buildSerSequence({
+      colorId: 0,
+      width: 2,
+      height: 2,
+      pixelDepth: 8,
+      frameCount: 1,
+    })
+    const source = new Uint8Array(buffer)
+    const ser = SER.fromBytes(source)
+    const frame = ser.getFrame(0)
+    const nextValue = (frame.raw[0]! + 7) & 0xff
+
+    source[frame.info.offset] = nextValue
+    expect(frame.raw[0]).toBe(nextValue)
+    expect((frame.samples as Uint8Array)[0]).toBe(nextValue)
+  })
+
+  it('uses zero-copy fromNodeBuffer when frameStorage=view', () => {
+    const { buffer } = buildSerSequence({
+      colorId: 0,
+      width: 2,
+      height: 2,
+      pixelDepth: 8,
+      frameCount: 1,
+    })
+    const source = new Uint8Array(buffer)
+    const ser = SER.fromNodeBuffer(
+      {
+        buffer: source.buffer,
+        byteOffset: source.byteOffset,
+        byteLength: source.byteLength,
+      },
+      { frameStorage: 'view' },
+    )
+    const frame = ser.getFrame(0)
+    const changed = (frame.raw[0]! + 3) & 0xff
+
+    source[frame.info.offset] = changed
+    expect(frame.raw[0]).toBe(changed)
+  })
+
+  it('allows per-call frameStorage override', () => {
+    const { buffer } = buildSerSequence({
+      colorId: 0,
+      width: 2,
+      height: 2,
+      pixelDepth: 8,
+      frameCount: 1,
+    })
+    const source = new Uint8Array(buffer)
+    const ser = SER.fromBytes(source)
+    const frameCopy = ser.getFrame(0, { frameStorage: 'copy' })
+    const frameView = ser.getFrame(0, { frameStorage: 'view' })
+    const mutated = (frameCopy.raw[0]! + 11) & 0xff
+
+    source[frameCopy.info.offset] = mutated
+    expect(frameCopy.raw[0]).not.toBe(mutated)
+    expect(frameView.raw[0]).toBe(mutated)
+  })
+
+  it('uses fast-path decoding for aligned little-endian 16-bit frames', () => {
+    const frame = makeFrameU16LE(3, 2, 1, 1200)
+    const buffer = writeSER({
+      header: {
+        colorId: 0,
+        width: 3,
+        height: 2,
+        pixelDepth: 16,
+        littleEndian: true,
+      },
+      frames: [frame],
+    })
+    const ser = SER.fromBytes(new Uint8Array(buffer), { frameStorage: 'view' })
+    const decoded = ser.getFrame(0)
+
+    expect(decoded.samples).toBeInstanceOf(Uint16Array)
+    expect((decoded.samples as Uint16Array).buffer).toBe(decoded.raw.buffer)
+    expect((decoded.samples as Uint16Array)[0]).toBe(1200)
+    expect((decoded.samples as Uint16Array)[1]).toBe(1297)
+  })
+
+  it('falls back to DataView decode for big-endian 16-bit frames', () => {
+    const width = 2
+    const height = 2
+    const pixels = width * height
+    const frame = new Uint8Array(pixels * 2)
+    const view = new DataView(frame.buffer)
+    const values = [1000, 2000, 3000, 4000]
+    for (let i = 0; i < values.length; i++) {
+      view.setUint16(i * 2, values[i]!, false)
+    }
+
+    const buffer = writeSER(
+      {
+        header: {
+          colorId: 0,
+          width,
+          height,
+          pixelDepth: 16,
+          littleEndian: false,
+        },
+        frames: [frame],
+      },
+      { endiannessPolicy: 'spec' },
+    )
+
+    const ser = SER.fromBytes(new Uint8Array(buffer), {
+      frameStorage: 'view',
+      endiannessPolicy: 'spec',
+    })
+    const decoded = ser.getFrame(0)
+
+    expect(decoded.samples).toBeInstanceOf(Uint16Array)
+    expect(Array.from(decoded.samples as Uint16Array)).toEqual(values)
+    expect((decoded.samples as Uint16Array).buffer).not.toBe(decoded.raw.buffer)
+  })
+
+  it('applies requestInit and retry options in SER.fromURL', async () => {
+    const { buffer } = buildSerSequence({
+      colorId: 0,
+      width: 2,
+      height: 2,
+      pixelDepth: 8,
+      frameCount: 1,
+    })
+    const bytes = new Uint8Array(buffer)
+    let attempts = 0
+
+    const fetchMock = vi.fn(async (_input: string | URL, init?: RequestInit) => {
+      attempts++
+      const headers = new Headers(init?.headers)
+      expect(headers.get('authorization')).toBe('Bearer ser-token')
+      expect(init?.credentials).toBe('include')
+      if (attempts === 1) {
+        return new Response('temporary failure', { status: 503, statusText: 'Service Unavailable' })
+      }
+      return new Response(bytes, { status: 200 })
+    })
+
+    const originalFetch = globalThis.fetch
+    vi.stubGlobal('fetch', fetchMock)
+    try {
+      const ser = await SER.fromURL('https://example.test/capture.ser', {
+        requestInit: {
+          credentials: 'include',
+          headers: {
+            Authorization: 'Bearer ser-token',
+          },
+        },
+        retryCount: 1,
+        retryDelayMs: 0,
+      })
+      expect(ser.getFrameCount()).toBe(1)
+      expect(attempts).toBe(2)
+    } finally {
+      vi.stubGlobal('fetch', originalFetch)
+    }
+  })
+
+  it('supports timeout control in SER.fromURL', async () => {
+    const fetchMock = vi.fn((_input: string | URL, init?: RequestInit) => {
+      return new Promise<Response>((_resolve, reject) => {
+        const signal = init?.signal
+        if (!signal) return
+        if (signal.aborted) {
+          reject(new Error('aborted'))
+          return
+        }
+        signal.addEventListener(
+          'abort',
+          () => {
+            reject(new Error('aborted'))
+          },
+          { once: true },
+        )
+      })
+    })
+
+    const originalFetch = globalThis.fetch
+    vi.stubGlobal('fetch', fetchMock)
+    try {
+      await expect(
+        SER.fromURL('https://example.test/timeout.ser', {
+          timeoutMs: 15,
+        }),
+      ).rejects.toThrow('timed out')
+    } finally {
+      vi.stubGlobal('fetch', originalFetch)
+    }
   })
 })

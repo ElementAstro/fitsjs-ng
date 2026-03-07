@@ -370,6 +370,10 @@
   let currentImage = null;
   let currentHduIndex = 0;
   let currentFrameIndex = 0;
+  const LOW_MEMORY_FITS_OPTIONS = Object.freeze({
+    dataUnitStorage: 'view',
+    imageFrameCacheMaxFrames: 2,
+  });
 
   const $ = (sel) => document.querySelector(sel);
 
@@ -675,6 +679,13 @@
       updateFrameSelect(image);
       const frame = await image.getFrame(currentFrameIndex);
       currentPixels = frame;
+      if (image.isDataCube()) {
+        for (let i = 0; i < image.depth; i++) {
+          if (i !== currentFrameIndex) {
+            image.releaseFrameCache(i);
+          }
+        }
+      }
 
       const { min, max } = renderImageToCanvas(frame, image.width, image.height);
 
@@ -690,7 +701,7 @@
         ['BSCALE', image.bscale],
       ]);
 
-      setStatus(`HDU ${index}: Image ${image.width}×${image.height} (frame ${currentFrameIndex})`);
+      setStatus(`HDU ${index}: Image ${image.width}×${image.height} (frame ${currentFrameIndex}) · low-memory mode`);
     } else if (dataType === 'Table' || dataType === 'BinaryTable') {
       const table = hdu.data;
       currentImage = null;
@@ -731,7 +742,7 @@
   async function loadFits(buffer) {
     try {
       setStatus('Parsing...');
-      const fits = FITS.fromArrayBuffer(buffer);
+      const fits = FITS.fromArrayBuffer(buffer, LOW_MEMORY_FITS_OPTIONS);
       currentFits = fits;
       currentHduIndex = 0;
       currentFrameIndex = 0;
